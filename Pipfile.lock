@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "8c5704f17d418ed15da9bcb36191ff7e4ce5b39ae80ffb1d426ad508268f8cff"
+            "sha256": "7d71d9cbc0e4cef25bbb9bec5a8635ba8d0d9a18828a550302a2ad3ae52394c5"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -139,11 +139,10 @@
         },
         "jsonfield": {
             "hashes": [
-                "sha256:7e4e84597de21eeaeeaaa7cc5da08c61c48a9b64d0c446b2d71255d01812887a",
-                "sha256:df857811587f252b97bafba42e02805e70a398a7a47870bc6358a0308dd689ed"
+                "sha256:7e7f73a675c518712badd783279e26d164140f3fc2ed7a32102c3d08a6a2a4a7"
             ],
             "index": "pypi",
-            "version": "==3.1.0"
+            "version": "==1.0.3"
         },
         "markdown": {
             "hashes": [
@@ -325,7 +324,7 @@
                 "sha256:fed0f22bf1313ff79c7fc318f7199d6c2f96d4de3234b2f12a1eab350e597c06",
                 "sha256:ffd4e4877a78c84d693e491b223385e0271278f5f4e1476a4962dca6824ecfeb"
             ],
-            "markers": "python_version >= '2.5' and python_version not in '3.0, 3.1, 3.2'",
+            "markers": "python_version >= '2.5' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==3.17.2"
         },
         "sqlparse": {
