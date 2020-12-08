@@ -93,7 +93,6 @@ DATABASES = {
 }
 
 
-
 # Password validation
 # https://docs.djangoproject.com/en/3.1/ref/settings/#auth-password-validators
 
@@ -162,4 +161,3 @@ else:
     # CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
     # PWA_APP_DEBUG_MODE = False
-
