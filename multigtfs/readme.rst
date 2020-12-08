@@ -14,7 +14,7 @@ Fixes from original package were replacing all instances of
     to
     from six import python_2_unicode_compatible
 
-    from django.utils.six etc...
+    from django.utils.six
     to
     from six
 
