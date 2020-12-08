@@ -9,18 +9,19 @@ All Credits go to author.
 Fixes from original package were replacing all instances of
 
 .. code-block:: python
-from django.utils.encoding import python_2_unicode_compatible
-to
-from six import python_2_unicode_compatible
 
-from django.utils.six etc...
-to
-from six
+    from django.utils.encoding import python_2_unicode_compatible
+    to
+    from six import python_2_unicode_compatible
 
-def from_db_value(self, value, expression, connection, context)
-to
-def from_db_value(self, value, expression, connection)
-code . . .
+    from django.utils.six etc...
+    to
+    from six
+
+    def from_db_value(self, value, expression, connection, context)
+    to
+    def from_db_value(self, value, expression, connection)
+
 
 .. image:: https://img.shields.io/pypi/v/multigtfs.svg
 :alt: The PyPI package
