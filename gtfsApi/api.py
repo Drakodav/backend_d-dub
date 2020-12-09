@@ -12,15 +12,17 @@ from rest_framework.response import Response
 import django_filters
 from django_filters.rest_framework import FilterSet
 
+
+# generate a default template filter to use in the viewset
 def getFilterClass(Model):
     class MyFilter(FilterSet):
         class Meta:
-            model = Model
             if Model.__name__ == 'StopTime' or Model.__name__ == 'Frequency':
-                exclude = ['trip']
+                exclude = ['trip'] # Trip is a foreign key that can screw things up when filtering
 
-            fields = ('__all__')
-            filter_overrides = {
+            model = Model
+            fields = ('__all__')    # include all the fields from the Model
+            filter_overrides = {    # any model types mathing these will have use these filter classes
                 models.CharField: {
                     'filter_class': django_filters.CharFilter,
                     'extra': lambda f: {
@@ -55,6 +57,7 @@ def getFilterClass(Model):
     return MyFilter
 
 
+# generate a default template serializer
 def getSerializer(Model):
     class MySerializer(serializers.ModelSerializer):
         class Meta:
@@ -63,6 +66,7 @@ def getSerializer(Model):
     return MySerializer
 
 
+# generate a default template viewSet
 def getViewSet(Model):
     class MyViewSet(viewsets.ReadOnlyModelViewSet):
 
@@ -84,6 +88,7 @@ def getViewSet(Model):
     return MyViewSet
 
 
+# List all the models that need to be registered for our API
 bulkRoutes = [
     ('agency', Agency, 'Agency'),
     ('block', Block, 'Block'),
@@ -105,12 +110,12 @@ bulkRoutes = [
 ]
 
 
+# returns the registered url routes for the API
 def getRouterUrls():
     router = routers.DefaultRouter()
     for r in bulkRoutes:
         router.register(r'{}'.format(r[0]), getViewSet(
             r[1]), basename='{}'.format(r[2]))
-
     return router.urls
 
 
