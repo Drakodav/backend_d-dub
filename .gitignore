@@ -3,6 +3,7 @@
 .denv
 .venv
 staticfiles/static
+gtfs.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

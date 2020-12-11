@@ -154,7 +154,8 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles/static")
 ADMIN_MEDIA_PREFIX = '/static/admin/'
 
-if socket.gethostname() == "DESKTOP-9D122S4":
+hostnames = ['I530442.local', "DESKTOP-9D122S4"]
+if socket.gethostname() in hostnames:
     DATABASES["default"]["HOST"] = "localhost"
     DATABASES["default"]["PORT"] = 25432
 
