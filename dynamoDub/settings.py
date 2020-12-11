@@ -61,9 +61,6 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
-# CORS_ALLOWED_ORIGINS = ["https://example.com"]
-
 ROOT_URLCONF = 'dynamoDub.urls'
 
 TEMPLATES = [
@@ -164,6 +161,7 @@ if socket.gethostname() in hostnames:
     ALLOWED_HOSTS = ['*', ]
     CSRF_COOKIE_SECURE = False
     SESSION_COOKIE_SECURE = False
+    CORS_ALLOW_ALL_ORIGINS = True
 else:
     DATABASES["default"]["HOST"] = 'postgis'
     DATABASES["default"]["PORT"] = 5432
@@ -174,3 +172,4 @@ else:
     # CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
     # PWA_APP_DEBUG_MODE = False
+    # CORS_ALLOWED_ORIGINS = ["https://example.com"]
