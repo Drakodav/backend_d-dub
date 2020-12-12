@@ -29,7 +29,7 @@ from multigtfs.compat import (
 
 logger = getLogger(__name__)
 re_point = re.compile(r'(?P<name>point)\[(?P<index>\d)\]')
-batch_size = 1000
+batch_size = 10000
 CSV_BOM = BOM_UTF8.decode('utf-8') if PY3 else BOM_UTF8
 
 
