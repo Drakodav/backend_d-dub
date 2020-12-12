@@ -1,8 +1,8 @@
 # Dynamo Dublin - Backend Api
 
-Api - [https://api.thev-lad.com/api/gtfs/]
-Admin - [https://api.thev-lad.com/api/admin/]
-PgAdmin4 - [https://api.thev-lad.com/pgadmin]
+Api - https://api.thev-lad.com/api/gtfs/  
+Admin - https://api.thev-lad.com/api/admin/  
+PgAdmin4 - https://api.thev-lad.com/pgadmin
 
 -   Install Backend Django Rest FrameWork Api
 
