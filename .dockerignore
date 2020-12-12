@@ -1,0 +1,11 @@
+!/frontend/dist
+
+.devcontainer
+.vscode
+.venv
+.denv
+web-mapping-key.pem
+frontend/node_modules
+web-mapping_key.pem
+*.sh
+nginx/

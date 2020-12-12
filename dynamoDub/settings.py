@@ -146,10 +146,10 @@ REST_FRAMEWORK = {
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = 'api/static/'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles/static")
-ADMIN_MEDIA_PREFIX = '/static/admin/'
+ADMIN_MEDIA_PREFIX = '/api/static/admin/'
 
 hostnames = ['I530442.local', "DESKTOP-9D122S4"]
 if socket.gethostname() in hostnames:
@@ -166,10 +166,10 @@ else:
     DATABASES["default"]["HOST"] = 'postgis'
     DATABASES["default"]["PORT"] = 5432
 
-    ALLOWED_HOSTS = ['.thev-lad.com', 'localhost']
+    ALLOWED_HOSTS = ['.thev-lad.com', 'localhost', 'localhost:8080']
     # DEBUG = False
     # TEMPLATES[0]["OPTIONS"]["debug"] = False
     # CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
-    # PWA_APP_DEBUG_MODE = False
-    # CORS_ALLOWED_ORIGINS = ["https://example.com"]
+    CORS_ALLOWED_ORIGINS = ["https://thev-lad.com",
+                            "https://localhost", "https://localhost:8080"]
