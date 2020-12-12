@@ -171,4 +171,5 @@ else:
     # TEMPLATES[0]["OPTIONS"]["debug"] = False
     # CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
-    CORS_ALLOWED_ORIGINS = ["https://thev-lad.com", "https://dynamo.thev-lad.com","https://localhost", "https://localhost:8080"]
+    CORS_ALLOW_ALL_ORIGINS = True
+    # CORS_ALLOWED_ORIGINS = ["https://thev-lad.com", "https://dynamo.thev-lad.com"]
