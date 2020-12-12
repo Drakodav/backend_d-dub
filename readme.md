@@ -26,3 +26,12 @@ python manage.py importgtfs [--name name_of_feed] path/to/gtfsfeed.zip
 ```
 sudo find . -type f -iname "*.sh" -exec chmod +x {} \;
 ```
+
+- importing gtfs data
+
+```
+docker exec -it dynamo_backend bash
+rm gtfs.zip
+wget -O gtfs.zip https://transitfeeds.com/p/transport-for-ireland/782/latest/download
+python manage.py importgtfs gtfs.zip
+```
