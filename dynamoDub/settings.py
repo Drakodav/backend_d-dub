@@ -166,10 +166,9 @@ else:
     DATABASES["default"]["HOST"] = 'postgis'
     DATABASES["default"]["PORT"] = 5432
 
-    ALLOWED_HOSTS = ['.thev-lad.com', 'localhost', 'localhost:8080']
+    ALLOWED_HOSTS = ['.thev-lad.com', 'localhost', 'localhost:8080', "dynamo.thev-lad.com/"]
     # DEBUG = False
     # TEMPLATES[0]["OPTIONS"]["debug"] = False
     # CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
-    CORS_ALLOWED_ORIGINS = ["https://thev-lad.com",
-                            "https://localhost", "https://localhost:8080"]
+    CORS_ALLOWED_ORIGINS = ["https://thev-lad.com", "https://dynamo.thev-lad.com/","https://localhost", "https://localhost:8080"]
