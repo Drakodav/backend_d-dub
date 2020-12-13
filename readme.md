@@ -4,7 +4,18 @@ Api - https://api.thev-lad.com/api/gtfs/
 Admin - https://api.thev-lad.com/api/admin/  
 PgAdmin4 - https://api.thev-lad.com/pgadmin
 
--   Install Backend Django Rest FrameWork Api
+## Brief
+
+-   The main objective of the backend django application is to provide an api that a frontend can query.
+-   The reason behind this architecture choice is to have a complete separation of concern of the two workflows.
+-   From the links above you can browse the api.
+-   GTFS (General Transit Feed Specification) data is being served.
+
+-   For this part of the project I am most proud of my generic function that can serialize, display and filter all the models in the gtfs domain.
+
+-   The current system has in place a very powerful and queryable api, the only thing left to do is to put in a few sprints of frontend development work in order to turn this into a usefule piece of technology.
+
+*   Install Backend Django Rest FrameWork Api
 
 ```
 python 3.8 -m venv .denv
