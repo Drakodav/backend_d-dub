@@ -57,7 +57,8 @@ def getFilterClass(Model):
     return MyFilter
 
 
-# generate a default template serializer
+# generate a default template serialize
+# hyper model ser...
 def getSerializer(Model):
     class MySerializer(serializers.ModelSerializer):
         class Meta:

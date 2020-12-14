@@ -49,6 +49,6 @@ sudo find . -type f -iname "*.sh" -exec chmod +x {} \;
 ```
 docker exec -it dynamo_backend bash
 rm gtfs.zip
-wget -O gtfs.zip https://transitfeeds.com/p/transport-for-ireland/782/latest/download
+wget -O gtfs.zip https://www.transportforireland.ie/transitData/google_transit_dublinbus.zip
 python manage.py importgtfs gtfs.zip
 ```
