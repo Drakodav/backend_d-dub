@@ -6,6 +6,7 @@ name = "pypi"
 [scripts]
 server = "python manage.py runserver"
 test = "python manage.py test"
+entities = "python manage.py graph_models -a -g -o dynamo_class_diagrams.png"
 
 [packages]
 asgiref = "==3.3.0"
