@@ -40,13 +40,20 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
-    'corsheaders',
+    'corsheaders',  # cors control
     'rest_framework',
     'rest_framework_gis',
     'django_filters',
+    'celery',
+    'django_celery_results',
     'multigtfs',
     'gtfsApi',
+    'gtfsRApi',
 ]
+
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_RESULT_BACKEND = 'django-cache'
+CELERY_CACHE_BACKEND = 'default'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -133,9 +140,9 @@ USE_TZ = True
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
     # or allow read-only access for unauthenticated users.
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
-    ],
+    # 'DEFAULT_PERMISSION_CLASSES': [
+    #     'rest_framework.permissions.DjangoModelPermissions'
+    # ],
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
     ],
@@ -166,7 +173,8 @@ else:
     DATABASES["default"]["HOST"] = 'postgis'
     DATABASES["default"]["PORT"] = 5432
 
-    ALLOWED_HOSTS = ['.thev-lad.com', 'localhost', 'localhost:8080', "dynamo.thev-lad.com/"]
+    ALLOWED_HOSTS = ['.thev-lad.com', 'localhost',
+                     'localhost:8080', "dynamo.thev-lad.com/"]
     # DEBUG = False
     # TEMPLATES[0]["OPTIONS"]["debug"] = False
     # CSRF_COOKIE_SECURE = True

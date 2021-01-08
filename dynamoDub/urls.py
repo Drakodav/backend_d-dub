@@ -18,5 +18,6 @@ from django.urls import path, include
 
 urlpatterns = [
     path('api/admin/', admin.site.urls),
-    path('api/gtfs/', include('gtfsApi.urls'))
+    path('api/gtfs/', include('gtfsApi.urls')),
+    path('api/gtfsr/', include('gtfsRApi.urls'))
 ]

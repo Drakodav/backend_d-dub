@@ -52,3 +52,17 @@ rm gtfs.zip
 wget -O gtfs.zip https://www.transportforireland.ie/transitData/google_transit_dublinbus.zip
 python manage.py importgtfs gtfs.zip
 ```
+
+-   setting up server for celery
+
+```
+sudo apt-get install rabbitmq-server
+./scripts/rabbitmq.sh
+```
+
+-   using celery
+
+```
+celery -A dynamoDub worker -l INFO
+celery -A dynamoDub beat
+```
