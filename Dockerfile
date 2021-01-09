@@ -13,21 +13,6 @@ RUN pip install --upgrade pip setuptools wheel
 # the image as it will contain only our project
 RUN apt-get -y install build-essential python-cffi libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info
 
-# celery background supervisor
-RUN apt-get -y install supervisor
-
-# copy supervisor conf files 
-COPY ./supervisor etc/supervisor/conf.d
-
-# make log files available
-RUN touch -p /var/log/celery/worker.log
-RUN touch -p /var/log/celery/beat.log
-
-# Make supervisor aware of the new confs
-RUN service supervisor start
-RUN supervisorctl reread
-RUN supervisorctl update
-
 # Now copy this to the image and install everything in it.
 COPY requirements.txt /usr/src/app
 RUN pip install -r requirements.txt
@@ -37,6 +22,21 @@ COPY . /usr/src/app
 
 # make sure static files are up to date and available 
 RUN python manage.py collectstatic --no-input
+
+# celery background supervisor
+RUN apt-get -y install supervisor
+
+# copy supervisor conf files 
+COPY ./supervisor etc/supervisor/conf.d
+
+# make log files available
+RUN touch /var/log/celery/worker.log
+RUN touch /var/log/celery/beat.log
+
+# Make supervisor aware of the new confs and start supervisor service
+RUN service supervisor start
+RUN supervisorctl reread
+RUN supervisorctl update
 
 # expose localhost 8002 on the image
 # EXPOSE 8002
