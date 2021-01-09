@@ -26,11 +26,11 @@ COPY . /usr/src/app
 RUN python manage.py collectstatic --no-input
 
 # copy supervisor conf files 
-COPY ./supervisor etc/supervisor/conf.d
+COPY supervisor /etc/supervisor/conf.d
 
 # make log files available
-RUN mkdir -p /var/log/celery/worker.log && touch $_/worker.log
-RUN mkdir -p /var/log/celery/beat.log && touch $_/beat.log
+RUN mkdir -p /var/log/celery && touch /var/log/celery/worker.log
+RUN mkdir -p /var/log/celery && touch /var/log/celery/beat.log
 
 # Make supervisor aware of the new confs and start supervisor service
 RUN service supervisor start
