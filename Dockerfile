@@ -34,8 +34,8 @@ RUN mkdir -p /var/log/celery && touch /var/log/celery/beat.log
 
 # Make supervisor aware of the new confs and start supervisor service
 RUN service supervisor start
-RUN supervisorctl reread
-RUN supervisorctl update
+# RUN supervisorctl reread
+# RUN supervisorctl update
 RUN supervisorctl start all
 
 # expose localhost 8002 on the image
