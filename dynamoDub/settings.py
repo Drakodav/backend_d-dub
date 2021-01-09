@@ -13,16 +13,17 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 import os
 from pathlib import Path
 import socket
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+load_dotenv(os.path.join(BASE_DIR.parent, 'dynamoDub.env'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '=09&vm%^f+2hi9p(u+3yj-i4p^$^6-q7s-zo^1qw$=hfs&8(z+'
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -158,7 +159,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles/static")
 ADMIN_MEDIA_PREFIX = '/api/static/admin/'
 
-hostnames = ['I530442.local', "DESKTOP-9D122S4"]
+hostnames = ["DESKTOP-9D122S4"]
 if socket.gethostname() in hostnames:
     DATABASES["default"]["HOST"] = "localhost"
     DATABASES["default"]["PORT"] = 25432
@@ -172,6 +173,8 @@ if socket.gethostname() in hostnames:
 else:
     DATABASES["default"]["HOST"] = 'postgis'
     DATABASES["default"]["PORT"] = 5432
+
+    BROKER_URL = 'amqp://guest:**@celery_broker:5672//'
 
     ALLOWED_HOSTS = ['.thev-lad.com', 'localhost',
                      'localhost:8080', "dynamo.thev-lad.com/"]

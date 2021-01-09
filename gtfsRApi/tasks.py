@@ -1,5 +1,6 @@
+import os
 from celery import shared_task
-from django.core.checks.messages import ERROR
+from django.core.checks.messages import ERROR, Error
 from .models import GtfsRApi
 import requests
 
@@ -9,7 +10,7 @@ def gtfs_r_api():
     headers = {
         'Accept': 'application/json',
         'Cache-Control': 'no-cache',
-        'x-api-key': 'd8bd6f4116d44a6592f541e1b3954eee',
+        'x-api-key': os.getenv("X_API_KEY"),
     }
 
     try:
@@ -18,9 +19,11 @@ def gtfs_r_api():
 
         data = response.json()
 
-        record = GtfsRApi(data=data)
-        record.save()
-
-        return 'Success'
-    except ERROR as e:
+        if "statusCode" in data and data["statusCode"] == 429:
+            raise Exception('{}'.format(data["message"]))
+        else:
+            record = GtfsRApi(data=data)
+            record.save()
+            return 'Success {}'.format(record.timestamp)
+    except Exception as e:
         return e

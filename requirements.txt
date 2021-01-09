@@ -29,6 +29,7 @@ pipenv==2020.11.15
 psycopg2==2.8.6
 psycopg2-binary==2.8.6
 pycodestyle==2.6.0
+python-dotenv==0.15.0
 pytz==2020.4
 requests==2.25.0
 simplejson==3.17.2

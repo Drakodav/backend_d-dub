@@ -9,7 +9,7 @@ docker rm celery_broker
 
 docker create --name celery_broker --network geonet \
 --network-alias na_celery_broker -t \
--p 5672:5672 \
 rabbitmq
+# -p 5672:5672 \
 
 docker start celery_broker
