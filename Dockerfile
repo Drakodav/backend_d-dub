@@ -12,7 +12,8 @@ RUN /usr/local/bin/python -m pip install --upgrade pip
 
 # Get the following libraries. We can install them "globally" on 
 # the image as it will contain only our project
-RUN apt-get -y install build-essential python-cffi libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info
+# celery background supervisor
+RUN apt-get -y install build-essential python-cffi libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info supervisor
 
 # Now copy this to the image and install everything in it.
 COPY requirements.txt /usr/src/app
