@@ -20,7 +20,7 @@ cd backend_d-dub/scripts;
 sudo ./django.sh;
 # sudo ./nginx.sh;
 cd ../.. ;
-sudo rm -r backend_d-dub;
+sudo rm -r *;
  
 '
 
