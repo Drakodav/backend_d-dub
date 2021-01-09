@@ -3,9 +3,9 @@
 # run from this directory
 cd "${BASH_SOURCE%/*}" || exit
 
-# copy dynamoDub.env file 
+# copy .env file 
 sudo scp -i ../../web-mapping_key.pem \
-../../dynamoDub.env \
+../.env \
 azureuser@40.121.42.196:/home/azureuser/
 
 # shh in our server
@@ -14,6 +14,7 @@ sudo ssh -i ../../web-mapping_key.pem azureuser@40.121.42.196 \
 '
 git clone https://github.com/Drakodav/backend_d-dub.git;
 sudo find backend_d-dub/ -type f -iname "*.sh" -exec chmod +x {} \;
+cp .env backend_d-dub/;
 cd backend_d-dub/scripts;
 # sudo ./rabbitmq.sh
 sudo ./django.sh;
