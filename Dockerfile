@@ -19,6 +19,7 @@ RUN pip install -r requirements.txt
 
 # copy this directory into image
 COPY . /usr/src/app
+COPY ../dynamoDub.env /usr/src/
 
 # make sure static files are up to date and available 
 RUN python manage.py collectstatic --no-input
