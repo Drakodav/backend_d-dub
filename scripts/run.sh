@@ -3,7 +3,7 @@
 # run from this directory
 cd "${BASH_SOURCE%/*}" || exit
 
-# copy .env file 
+# copy .env file to VM
 sudo scp -i ../../web-mapping_key.pem \
 ../.env \
 azureuser@40.121.42.196:/home/azureuser/

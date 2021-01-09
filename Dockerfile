@@ -1,5 +1,8 @@
 FROM python:3.8
 
+RUN mkdir -p /var/log/celery/worker.log && touch /var/log/celery/worker.log
+RUN mkdir -p /var/log/celery/beat.log && touch $_/beat.log
+
 # update and install gdal
 RUN apt-get -y update && apt-get -y upgrade && apt-get -y install libgdal-dev
 
@@ -8,6 +11,7 @@ RUN mkdir -p /user/src/app
 WORKDIR /usr/src/app
 # make sure that pip is installed and to date
 RUN pip install --upgrade pip setuptools wheel
+RUN /usr/local/bin/python -m pip install --upgrade pip
 
 # Get the following libraries. We can install them "globally" on 
 # the image as it will contain only our project
@@ -30,8 +34,8 @@ RUN apt-get -y install supervisor
 COPY ./supervisor etc/supervisor/conf.d
 
 # make log files available
-RUN touch /var/log/celery/worker.log
-RUN touch /var/log/celery/beat.log
+# RUN mkdir -p /var/log/celery/worker.log && touch /var/log/celery/worker.log
+# RUN mkdir -p /var/log/celery/beat.log && touch $_/beat.log
 
 # Make supervisor aware of the new confs and start supervisor service
 RUN service supervisor start
