@@ -20,8 +20,9 @@ RUN apt-get -y install supervisor
 COPY ./supervisor/ etc/supervisor/conf.d/
 
 # Make supervisor aware of the new confs
-RUN supervisorctl reread
-RUN supervisorctl update
+# RUN service supervisor start
+# RUN supervisorctl reread
+# RUN supervisorctl update
 
 # Now copy this to the image and install everything in it.
 COPY requirements.txt /usr/src/app
