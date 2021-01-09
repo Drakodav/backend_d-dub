@@ -65,10 +65,4 @@ sudo apt-get install rabbitmq-server
 ```
 celery -A dynamoDub worker -l INFO
 celery -A dynamoDub beat
-
-background
-celery multi start worker -A dynamoDub -l INFO
-celery multi start worker -A dynamoDub beat
-
-celery multi stopwait worker -A dynamoDub -l INFO
 ```

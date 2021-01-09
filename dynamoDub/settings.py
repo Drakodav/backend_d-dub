@@ -174,7 +174,7 @@ else:
     DATABASES["default"]["HOST"] = 'postgis'
     DATABASES["default"]["PORT"] = 5432
 
-    BROKER_URL = 'amqp://guest:**@celery_broker:5672//'
+    CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
 
     ALLOWED_HOSTS = ['.thev-lad.com', 'localhost',
                      'localhost:8080', "dynamo.thev-lad.com/"]
