@@ -17,12 +17,16 @@ RUN apt-get -y install build-essential python-cffi libcairo2 libpango-1.0-0 libp
 RUN apt-get -y install supervisor
 
 # copy supervisor conf files 
-COPY ./supervisor/ etc/supervisor/conf.d/
+COPY ./supervisor etc/supervisor/conf.d
+
+# make log files available
+RUN touch -p /var/log/celery/worker.log
+RUN touch -p /var/log/celery/beat.log
 
 # Make supervisor aware of the new confs
-# RUN service supervisor start
-# RUN supervisorctl reread
-# RUN supervisorctl update
+RUN service supervisor start
+RUN supervisorctl reread
+RUN supervisorctl update
 
 # Now copy this to the image and install everything in it.
 COPY requirements.txt /usr/src/app
