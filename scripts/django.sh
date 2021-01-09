@@ -22,7 +22,8 @@ docker exec dynamo_backend python manage.py makemigrations
 docker exec dynamo_backend python manage.py migrate
 docker exec dynamo_backend python manage.py collectstatic --noinput
 
-
 # start supervisor service
 docker exec dynamo_backend service supervisor start
 docker exec dynamo_backend supervisorctl start all
+
+echo "Finshed deploying django application"
