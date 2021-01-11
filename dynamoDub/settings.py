@@ -157,6 +157,9 @@ REST_FRAMEWORK = {
 STATIC_URL = 'api/static/'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles/static")
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'gtfsRApi', 'templates')
+]
 ADMIN_MEDIA_PREFIX = '/api/static/admin/'
 
 hostnames = ["DESKTOP-9D122S4"]

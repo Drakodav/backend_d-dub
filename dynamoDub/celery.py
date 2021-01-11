@@ -22,4 +22,7 @@ app.conf.beat_schedule = {
         "task": "gtfsRApi.tasks.gtfs_r_api",
         "schedule": 62.0,  # run every X seconds
     },
+    "download_realtime_data": {
+        "task": "gtfsRApi.tasks.download_realtime_data",
+    },
 }

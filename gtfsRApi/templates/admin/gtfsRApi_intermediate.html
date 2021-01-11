@@ -1,0 +1,35 @@
+{% extends "admin/base_site.html" %} {% block content %}
+<form action="" method="post">
+    {% csrf_token %}
+    <p>Select the year & month you want to download for...</p>
+
+    <label>Choose a Month:</label>
+    <select name="month">
+        <option>- Month -</option>
+        <option value="1">January</option>
+        <option value="2">Febuary</option>
+        <option value="3">March</option>
+        <option value="4">April</option>
+        <option value="5">May</option>
+        <option value="6">June</option>
+        <option value="7">July</option>
+        <option value="8">August</option>
+        <option value="9">September</option>
+        <option value="10">October</option>
+        <option value="11">November</option>
+        <option value="12">December</option>
+    </select>
+
+    <label>Choose a year:</label>
+    <select name="year">
+        <option>- Year -</option>
+        <option value="2021">2021</option>
+        <option value="2020">2020</option>
+    </select>
+
+    <br />
+
+    <input type="hidden" name="action" value="download_object" />
+    <input type="submit" name="apply" value="Download Object" />
+</form>
+{% endblock %}
