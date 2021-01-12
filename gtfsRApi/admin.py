@@ -13,7 +13,7 @@ class GtfsRApiAdmin(admin.ModelAdmin):
     def download_records(self, request, queryset):
         props = ['download', 'month', 'year']
         if all([p in request.POST for p in props]):
-            records = download_realtime_data.delay(
+            records = download_realtime_data(
                 request.POST['year'], request.POST['month'])
 
             filename = "gtfsRRecords.txt"
