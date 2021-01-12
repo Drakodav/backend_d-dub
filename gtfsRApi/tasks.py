@@ -1,8 +1,6 @@
 import os
 from celery import shared_task
-from django.http.response import FileResponse
 from .models import GtfsRApi
-from dynamoDub.settings import BASE_DIR
 import requests
 
 
@@ -30,8 +28,6 @@ def gtfs_r_api():
         return e
 
 
-# from gtfsRApi.tasks import download_realtime_data
-# download_realtime_data(2021, 1)
 @shared_task
 def download_realtime_data(year: int, month: int):
 
@@ -39,10 +35,5 @@ def download_realtime_data(year: int, month: int):
         records = GtfsRApi.objects\
             .filter(timestamp__year=year, timestamp__month=month)\
             .values_list('data', flat=True)[::1]
-        # f = open(os.path.join(BASE_DIR, 'gtfsRecords.txt'), 'w+')
-        # f.write(str(records))
-        # f.close()
 
-        return FileResponse(str(records), as_attachment=True, filename='gtfsRecords.txt')
-    else:
-        print("choose another date")
+        return str(records)

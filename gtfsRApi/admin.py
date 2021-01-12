@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.http.response import HttpResponseRedirect
+from django.http.response import HttpResponse, HttpResponseRedirect
 from .models import GtfsRApi
 from django.shortcuts import render
 from .tasks import download_realtime_data
@@ -8,34 +8,31 @@ from .tasks import download_realtime_data
 class GtfsRApiAdmin(admin.ModelAdmin):
     list_display = ['timestamp']
     ordering = ['timestamp']
-    actions = ['download_object']
+    actions = ['download_records']
 
-    def download_object(self, request, queryset):
-        # All requests here will actually be of type POST
-        # so we will need to check for our special key 'apply'
-        # rather than the actual request type
-        if 'month' in request.POST or 'year' in request.POST:
-            print(request.POST, 'wqeuqwerpqwioperiqwpoeiropquweiorupwieuropqwiuerpou')
-            download_realtime_data(request.POST['year'], request.POST['month'])
-            # @TODO finish this off
+    def download_records(self, request, queryset):
+        props = ['download', 'month', 'year']
+        if all([p in request.POST for p in props]):
+            records = download_realtime_data.delay(
+                request.POST['year'], request.POST['month'])
 
-        if 'apply' in request.POST:
-            # The user clicked submit on the intermediate form.
-            # Perform our update action:
-            # queryset.update(status='NEW_STATUS')
-
+            filename = "gtfsRRecords.txt"
+            response = HttpResponse(records, content_type='text/plain')
+            response['Content-Disposition'] = 'attachment; filename={0}'.format(
+                filename)
             # Redirect to our admin view after our update has
-            # completed with a nice little info message saying
-            # our models have been updated:
-            # self.message_user(request,
-            #                   "Changed status on {} orders".format(queryset.count()))
+            # completed with a nice little info message
+            self.message_user(request,
+                              "Downloaded file")
+
+            return response
+
+        if 'back' in request.POST:
             return HttpResponseRedirect(request.get_full_path())
 
-        return render(request,
-                      'admin/gtfsRApi_intermediate.html',
-                      context={'gtfsRApi': queryset})
+        return render(request, 'admin/gtfsRApi_intermediate.html', context={'selected_action': request.POST['_selected_action']})
 
-    download_object.short_description = "Download selected objects"
+    download_records.short_description = "Download monthly records"
 
 
 admin.site.register(GtfsRApi, GtfsRApiAdmin)
