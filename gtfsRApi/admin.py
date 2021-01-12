@@ -7,7 +7,7 @@ from .tasks import download_realtime_data
 
 class GtfsRApiAdmin(admin.ModelAdmin):
     list_display = ['timestamp']
-    ordering = ['timestamp']
+    ordering = ['-timestamp']
     actions = ['download_records']
 
     def download_records(self, request, queryset):
