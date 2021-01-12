@@ -65,4 +65,7 @@ sudo apt-get install rabbitmq-server
 ```
 celery -A dynamoDub worker -l INFO
 celery -A dynamoDub beat
+
+celery -A dynamoDub  --broker 'amqp://admin:admin@localhost:5672//' worker -l INFO
+celery -A dynamoDub  --broker 'amqp://admin:admin@localhost:5672//' beat
 ```
