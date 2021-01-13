@@ -2,8 +2,8 @@ from django.contrib import admin
 from django.http.response import HttpResponse, HttpResponseRedirect
 from .models import GtfsRApi
 from django.shortcuts import render
-from .tasks import download_realtime_data
-from celery import current_app
+from gtfsRApi.tasks import download_realtime_data
+# from celery import current_app
 from celery.utils.log import get_logger
 
 logger = get_logger(__name__)
@@ -36,12 +36,15 @@ class GtfsRApiAdmin(admin.ModelAdmin):
         if all([p in request.POST for p in props]):
             records = None
             try:
-                records = download_realtime_data(
+                # # IMPORTANT, USE FULL MODULE PATH WHEN IMPORTING TASK
+                result = download_realtime_data.delay(
                     request.POST['year'], request.POST['month'])
-                # records = current_app.send_task(
+
+                # result = current_app.send_task(
                 #     "download_realtime_data",
-                #     args=(request.POST['year'], request.POST['month']),
+                #     args=(request.POST['year'], request.POST['month'])
                 # )
+                records = result.result
             except download_realtime_data.OperationalError as exc:
                 logger.exception('Sending task raised: %r', exc)
 

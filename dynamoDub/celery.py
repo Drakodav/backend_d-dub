@@ -23,3 +23,10 @@ app.conf.beat_schedule = {
         "schedule": 62.0,  # run every X seconds
     }
 }
+
+app.conf.broker_transport_options = {
+    'max_retries': 3,
+    'interval_start': 0,
+    'interval_step': 0.2,
+    'interval_max': 0.5,
+}
