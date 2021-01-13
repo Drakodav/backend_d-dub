@@ -173,11 +173,12 @@ if socket.gethostname() in hostnames:
     CSRF_COOKIE_SECURE = False
     SESSION_COOKIE_SECURE = False
     CORS_ALLOW_ALL_ORIGINS = True
+    CELERY_BROKER_URL = 'amqp://admin:admin@localhost:5672//'
 else:
     DATABASES["default"]["HOST"] = 'postgis'
     DATABASES["default"]["PORT"] = 5432
 
-    CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
+    CELERY_BROKER_URL = os.getenv('BROKER_URL')
 
     ALLOWED_HOSTS = ['.thev-lad.com', 'localhost',
                      'localhost:8080', "dynamo.thev-lad.com/"]
