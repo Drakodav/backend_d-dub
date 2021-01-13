@@ -28,13 +28,14 @@ def gtfs_r_api():
         return e
 
 
-@shared_task(name='download_realtime_data')
+@shared_task(name="download_realtime_data", ignore_result=False, track_started=True)
 def download_realtime_data(year: int, month: int):
     try:
-        records = GtfsRApi.objects\
-            .filter(timestamp__year=year, timestamp__month=month)\
-            .values_list('data', flat=True)[::1]
+        if GtfsRApi.objects.filter(timestamp__year=year, timestamp__month=month).exists():
+            records = GtfsRApi.objects\
+                .filter(timestamp__year=year, timestamp__month=month)\
+                .values_list('data', flat=True)[::1]
 
-        return str(records)
+            return str(records)
     except Exception as e:
         return e

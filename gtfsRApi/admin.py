@@ -37,14 +37,14 @@ class GtfsRApiAdmin(admin.ModelAdmin):
             records = None
             try:
                 # # IMPORTANT, USE FULL MODULE PATH WHEN IMPORTING TASK
-                result = download_realtime_data.delay(
+                records = download_realtime_data(
                     request.POST['year'], request.POST['month'])
 
                 # result = current_app.send_task(
                 #     "download_realtime_data",
                 #     args=(request.POST['year'], request.POST['month'])
                 # )
-                records = result.result
+                # records = result.result
             except download_realtime_data.OperationalError as exc:
                 logger.exception('Sending task raised: %r', exc)
 

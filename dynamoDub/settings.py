@@ -46,15 +46,10 @@ INSTALLED_APPS = [
     'rest_framework_gis',
     'django_filters',
     'celery',
-    'django_celery_results',
     'multigtfs',
     'gtfsApi',
     'gtfsRApi',
 ]
-
-CELERY_RESULT_BACKEND = 'django-db'
-CELERY_RESULT_BACKEND = 'django-cache'
-CELERY_CACHE_BACKEND = 'default'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
