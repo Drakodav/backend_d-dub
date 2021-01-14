@@ -2,10 +2,8 @@ import os
 from celery.result import AsyncResult
 from django.contrib import admin, messages
 from django.http.response import HttpResponse, HttpResponseRedirect
-from django.template.context import RenderContext
 from .models import GtfsRApi
 from django.shortcuts import render
-from django.template import RequestContext
 from gtfsRApi.tasks import download_realtime_data
 from dynamoDub.settings import STATIC_ROOT
 
@@ -45,37 +43,34 @@ class GtfsRApiAdmin(admin.ModelAdmin):
 
         if 'back' in request.POST:
             return HttpResponseRedirect(request.get_full_path())
-        # elif 'task_id' in request.POST and request.POST['task_id']:
-        #     result = AsyncResult(request.POST['task_id'])
-        #     if result.get() == 'success':
-        #         year, month = request.POST['year'], request.POST['month']
 
-        #         source_name = "GtfsRRecords.zip"
-        #         filepath = os.path.join(STATIC_ROOT, source_name)
+        if all([p in request.POST for p in ['task_id', 'download']]) and request.POST['task_id']:
+            result = AsyncResult(request.POST['task_id'])
+            if result.get() == 'success':
+                year, month = request.POST['year'], request.POST['month']
 
-        #         f = open(filepath, 'rb')
+                source_name = "GtfsRRecords.zip"
+                filepath = os.path.join(STATIC_ROOT, source_name)
 
-        #         filename = "GtfsRRecords_{}-{}.zip".format(year, month)
-        #         response = HttpResponse(f, content_type='text/plain')
-        #         response['Content-Disposition'] = 'attachment; filename={0}'.format(
-        #             filename)
-        #         # Redirect to our admin view after our update has
-        #         # completed with a nice little info message
-        #         self.message_user(request, 'Download Successful')
+                f = open(filepath, 'rb')
 
-        #         return response
-        #     messages.error(request, 'Data is not available for this month')
+                filename = "GtfsRRecords_{}-{}.zip".format(year, month)
+                response = HttpResponse(f, content_type='text/plain')
+                response['Content-Disposition'] = 'attachment; filename={0}'.format(
+                    filename)
+                # Redirect to our admin view after our update has
+                # completed with a nice little info message
+                self.message_user(request, 'Download Successful')
 
-        elif all([p in request.POST for p in ['download', 'month', 'year']]):
+                return response
+            messages.error(request, 'Data is not available for this month')
+
+        if all([p in request.POST for p in ['process', 'month', 'year']]):
             try:
                 year, month = request.POST['year'], request.POST['month']
                 # IMPORTANT, USE FULL MODULE PATH WHEN IMPORTING TASK
                 result = download_realtime_data.delay(year, month)
                 context['task_id'] = result.task_id
-
-                # post = request.POST.copy()  # make the post object mutable
-                # post.setdefault('task_id', result.task_id)
-                # request.POST = post
 
                 return render(request, 'admin/gtfsRApi_intermediate.html', context=context)
             except download_realtime_data.OperationalError as exc:

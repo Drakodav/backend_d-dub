@@ -5,6 +5,29 @@
     <h1>Download Records for any month</h1>
     <h5>*** Note: Downloads make take a long time due to size of records ***</h5>
 
+    {% if task_id %}
+    <div class="progress-wrapper">
+        <div id="progress-bar" class="progress-bar" style="background-color: #68a9ef; width: 0%">&nbsp;</div>
+    </div>
+    <div id="progress-bar-message">Waiting for progress to start...</div>
+    <script src="{% static 'celery_progress/celery_progress.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var progressUrl = "{% url 'celery_progress:task_status' task_id %}";
+
+            function customResult(resultElement, result) {
+                document.getElementById('dwnButton').name = 'download';
+                document.getElementById('dwnButton').value = 'Download';
+                document.getElementById('dwnButton').click();
+            }
+
+            CeleryProgressBar.initProgressBar(progressUrl, {
+                onResult: customResult,
+            });
+        });
+    </script>
+    {% endif %}
+
     <br />
 
     <label>Choose a Month:</label>
@@ -34,35 +57,7 @@
     <input type="hidden" name="action" value="download_records" />
     <input type="hidden" name="_selected_action" value="{{selected_action}}" />
     <input type="hidden" name="task_id" value="{{task_id}}" />
-    <input type="submit" name="download" value="Download" />
+    <input id="dwnButton" type="submit" name="process" value="Process" />
     <input type="submit" name="back" value="Back" />
-
-    {% if task_id %}
-    <div class="progress-wrapper">
-        <div id="progress-bar" class="progress-bar" style="background-color: #68a9ef; width: 0%">&nbsp;</div>
-    </div>
-    <div id="progress-bar-message">Waiting for progress to start...</div>
-    <script src="{% static 'celery_progress/celery_progress.js' %}"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            var progressUrl = "{% url 'celery_progress:task_status' task_id %}";
-
-            function download(dataurl, filename) {
-                var a = document.createElement('a');
-                a.href = dataurl;
-                a.setAttribute('download', filename);
-                a.click();
-            }
-
-            function customResult(resultElement, result) {
-                download('static/GtfsRRecords.zip', 'GtfsRRecords.zip');
-            }
-
-            CeleryProgressBar.initProgressBar(progressUrl, {
-                onResult: customResult,
-            });
-        });
-    </script>
-    {% endif %}
 </form>
 {% endblock %}
