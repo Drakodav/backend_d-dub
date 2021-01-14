@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'rest_framework_gis',
     'django_filters',
     'celery',
+    'django_celery_results',
     'multigtfs',
     'gtfsApi',
     'gtfsRApi',
@@ -117,6 +118,11 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# Celery configs
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_BACKEND = 'django-db'
 
 
 # email configs

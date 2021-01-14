@@ -1,8 +1,12 @@
-from django.contrib import admin
+import os
+from django.contrib import admin, messages
 from django.http.response import HttpResponse, HttpResponseRedirect
 from .models import GtfsRApi
 from django.shortcuts import render
 from gtfsRApi.tasks import download_realtime_data
+from dynamoDub.settings import STATIC_ROOT
+
+
 # from celery import current_app
 from celery.utils.log import get_logger
 
@@ -34,30 +38,32 @@ class GtfsRApiAdmin(admin.ModelAdmin):
     def download_records(self, request, queryset):
         props = ['download', 'month', 'year']
         if all([p in request.POST for p in props]):
-            records = None
+            message = None
             try:
                 # # IMPORTANT, USE FULL MODULE PATH WHEN IMPORTING TASK
-                records = download_realtime_data(
+                result = download_realtime_data.delay(
                     request.POST['year'], request.POST['month'])
 
-                # result = current_app.send_task(
-                #     "download_realtime_data",
-                #     args=(request.POST['year'], request.POST['month'])
-                # )
-                # records = result.result
+                message = result.get()
+
+                if message == 'success':
+                    filename = "GtfsRRecords.zip"
+                    filepath = os.path.join(STATIC_ROOT, filename)
+                    f = open(filepath, 'rb')
+                    response = HttpResponse(f, content_type='text/plain')
+                    response['Content-Disposition'] = 'attachment; filename={0}'.format(
+                        filename)
+                    # Redirect to our admin view after our update has
+                    # completed with a nice little info message
+                    self.message_user(request,
+                                      'Download Successful')
+
+                    return response
+
             except download_realtime_data.OperationalError as exc:
                 logger.exception('Sending task raised: %r', exc)
 
-            filename = "gtfsRRecords.txt"
-            response = HttpResponse(records, content_type='text/plain')
-            response['Content-Disposition'] = 'attachment; filename={0}'.format(
-                filename)
-            # Redirect to our admin view after our update has
-            # completed with a nice little info message
-            self.message_user(request,
-                              "Downloaded file")
-
-            return response
+            messages.error(request, 'Data is not available for this month')
 
         if 'back' in request.POST:
             return HttpResponseRedirect(request.get_full_path())
