@@ -1,8 +1,11 @@
 import os
+from celery.result import AsyncResult
 from django.contrib import admin, messages
 from django.http.response import HttpResponse, HttpResponseRedirect
+from django.template.context import RenderContext
 from .models import GtfsRApi
 from django.shortcuts import render
+from django.template import RequestContext
 from gtfsRApi.tasks import download_realtime_data
 from dynamoDub.settings import STATIC_ROOT
 
@@ -36,39 +39,49 @@ class GtfsRApiAdmin(admin.ModelAdmin):
         return admin.ModelAdmin.changelist_view(self, request, extra_context)
 
     def download_records(self, request, queryset):
-        props = ['download', 'month', 'year']
-        if all([p in request.POST for p in props]):
-            message = None
-            try:
-                # # IMPORTANT, USE FULL MODULE PATH WHEN IMPORTING TASK
-                result = download_realtime_data.delay(
-                    request.POST['year'], request.POST['month'])
-
-                message = result.get()
-
-                if message == 'success':
-                    filename = "GtfsRRecords.zip"
-                    filepath = os.path.join(STATIC_ROOT, filename)
-                    f = open(filepath, 'rb')
-                    response = HttpResponse(f, content_type='text/plain')
-                    response['Content-Disposition'] = 'attachment; filename={0}'.format(
-                        filename)
-                    # Redirect to our admin view after our update has
-                    # completed with a nice little info message
-                    self.message_user(request,
-                                      'Download Successful')
-
-                    return response
-
-            except download_realtime_data.OperationalError as exc:
-                logger.exception('Sending task raised: %r', exc)
-
-            messages.error(request, 'Data is not available for this month')
+        context = {
+            'selected_action': request.POST['_selected_action'],
+        }
 
         if 'back' in request.POST:
             return HttpResponseRedirect(request.get_full_path())
+        # elif 'task_id' in request.POST and request.POST['task_id']:
+        #     result = AsyncResult(request.POST['task_id'])
+        #     if result.get() == 'success':
+        #         year, month = request.POST['year'], request.POST['month']
 
-        return render(request, 'admin/gtfsRApi_intermediate.html', context={'selected_action': request.POST['_selected_action']})
+        #         source_name = "GtfsRRecords.zip"
+        #         filepath = os.path.join(STATIC_ROOT, source_name)
+
+        #         f = open(filepath, 'rb')
+
+        #         filename = "GtfsRRecords_{}-{}.zip".format(year, month)
+        #         response = HttpResponse(f, content_type='text/plain')
+        #         response['Content-Disposition'] = 'attachment; filename={0}'.format(
+        #             filename)
+        #         # Redirect to our admin view after our update has
+        #         # completed with a nice little info message
+        #         self.message_user(request, 'Download Successful')
+
+        #         return response
+        #     messages.error(request, 'Data is not available for this month')
+
+        elif all([p in request.POST for p in ['download', 'month', 'year']]):
+            try:
+                year, month = request.POST['year'], request.POST['month']
+                # IMPORTANT, USE FULL MODULE PATH WHEN IMPORTING TASK
+                result = download_realtime_data.delay(year, month)
+                context['task_id'] = result.task_id
+
+                # post = request.POST.copy()  # make the post object mutable
+                # post.setdefault('task_id', result.task_id)
+                # request.POST = post
+
+                return render(request, 'admin/gtfsRApi_intermediate.html', context=context)
+            except download_realtime_data.OperationalError as exc:
+                logger.exception('Sending task raised: %r', exc)
+
+        return render(request, 'admin/gtfsRApi_intermediate.html', context=context)
 
     download_records.short_description = "Download monthly records"
     download_records.acts_on_all = True

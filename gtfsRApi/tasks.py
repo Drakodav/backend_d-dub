@@ -3,6 +3,7 @@ import zipfile
 from celery.app import shared_task
 import requests
 from .models import GtfsRApi
+from celery_progress.backend import ProgressRecorder
 from dynamoDub.settings import STATIC_ROOT
 
 
@@ -34,6 +35,7 @@ def gtfs_r_api():
 def download_realtime_data(self, year: int, month: int):
     try:
         if GtfsRApi.objects.filter(timestamp__year=year, timestamp__month=month).exists():
+            progress_recorder = ProgressRecorder(self)
             records = GtfsRApi.objects\
                 .filter(timestamp__year=year, timestamp__month=month)\
                 .values_list('data', flat=True)
@@ -42,6 +44,7 @@ def download_realtime_data(self, year: int, month: int):
             with zipfile.ZipFile(os.path.join(STATIC_ROOT, 'GtfsRRecords.zip'), 'w') as zf:
                 for i, record in enumerate(records.iterator(chunk_size=1000)):
                     zf.writestr("{}.txt".format(i), str(record))
+                    progress_recorder.set_progress(i+1, length)
 
             return 'success'
         else:

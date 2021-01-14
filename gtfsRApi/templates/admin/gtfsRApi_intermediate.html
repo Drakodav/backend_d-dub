@@ -1,4 +1,4 @@
-{% extends "admin/base_site.html" %} {% block content %}
+{% extends "admin/base_site.html" %} {% load static %} {% block content %}
 <form action="" method="POST">
     {% csrf_token %}
 
@@ -33,7 +33,36 @@
 
     <input type="hidden" name="action" value="download_records" />
     <input type="hidden" name="_selected_action" value="{{selected_action}}" />
+    <input type="hidden" name="task_id" value="{{task_id}}" />
     <input type="submit" name="download" value="Download" />
     <input type="submit" name="back" value="Back" />
+
+    {% if task_id %}
+    <div class="progress-wrapper">
+        <div id="progress-bar" class="progress-bar" style="background-color: #68a9ef; width: 0%">&nbsp;</div>
+    </div>
+    <div id="progress-bar-message">Waiting for progress to start...</div>
+    <script src="{% static 'celery_progress/celery_progress.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var progressUrl = "{% url 'celery_progress:task_status' task_id %}";
+
+            function download(dataurl, filename) {
+                var a = document.createElement('a');
+                a.href = dataurl;
+                a.setAttribute('download', filename);
+                a.click();
+            }
+
+            function customResult(resultElement, result) {
+                download('static/GtfsRRecords.zip', 'GtfsRRecords.zip');
+            }
+
+            CeleryProgressBar.initProgressBar(progressUrl, {
+                onResult: customResult,
+            });
+        });
+    </script>
+    {% endif %}
 </form>
 {% endblock %}
