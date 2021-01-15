@@ -156,13 +156,13 @@ REST_FRAMEWORK = {
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
-STATIC_URL = 'api/static/'
+STATIC_URL = '/static/'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles/static")
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'gtfsRApi', 'templates')
 ]
-ADMIN_MEDIA_PREFIX = '/api/static/admin/'
+ADMIN_MEDIA_PREFIX = '/static/admin/'
 
 hostnames = ["DESKTOP-9D122S4"]
 if socket.gethostname() in hostnames:
