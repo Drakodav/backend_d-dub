@@ -54,7 +54,7 @@ class GtfsRApiAdmin(admin.ModelAdmin):
 
                 filename = "GtfsRRecords_{}-{}.zip".format(year, month)
                 response = FileResponse(
-                    open(filepath, 'rb'), content_type='application/zip', as_attachment=True)
+                    open(filepath, 'rb'), content_type='application/zip')
                 response['Content-Disposition'] = 'attachment; filename={0}'.format(
                     filename)
                 # Redirect to our admin view after our update has
