@@ -1,6 +1,7 @@
 # Dynamo Dublin - Backend Api
 
-Api - https://api.thev-lad.com/api/gtfs/  
+Api - https://api.thev-lad.com/api/gtfs/
+Realtime Api - https://api.thev-lad.com/api/gtfsr/
 Admin - https://api.thev-lad.com/api/admin/  
 PgAdmin4 - https://api.thev-lad.com/pgadmin
 
