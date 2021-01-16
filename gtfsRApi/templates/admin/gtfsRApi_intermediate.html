@@ -14,10 +14,15 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var progressUrl = "{% url 'celery_progress:task_status' task_id %}";
+            document.getElementById('dwnButton').disabled = 'True';
+            document.getElementById('bckButton').disabled = 'True';
 
             function customResult(resultElement, result) {
+                document.getElementById('bckButton').disabled = 'False';
+
                 document.getElementById('dwnButton').name = 'download';
                 document.getElementById('dwnButton').value = 'Download';
+                document.getElementById('dwnButton').disabled = 'False';
                 document.getElementById('dwnButton').click();
             }
 
@@ -58,6 +63,6 @@
     <input type="hidden" name="_selected_action" value="{{selected_action}}" />
     <input type="hidden" name="task_id" value="{{task_id}}" />
     <input id="dwnButton" type="submit" name="process" value="Process" />
-    <input type="submit" name="back" value="Back" />
+    <input id="bckButton" type="submit" name="back" value="Back" />
 </form>
 {% endblock %}
