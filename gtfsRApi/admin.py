@@ -1,7 +1,7 @@
 import os
 from celery.result import AsyncResult
 from django.contrib import admin, messages
-from django.http.response import FileResponse,  HttpResponseRedirect
+from django.http import FileResponse,  HttpResponseRedirect
 from .models import GtfsRApi
 from django.shortcuts import render
 from gtfsRApi.tasks import download_realtime_data
@@ -53,14 +53,13 @@ class GtfsRApiAdmin(admin.ModelAdmin):
                 filepath = os.path.join(STATIC_ROOT, source_name)
 
                 filename = "GtfsRRecords_{}-{}.zip".format(year, month)
-                response = FileResponse(
-                    open(filepath, 'rb'), content_type='application/zip', filename=filename)
 
                 # Redirect to our admin view after our update has
                 # completed with a nice little info message
                 self.message_user(request, 'Download Successful')
 
-                return response
+                return FileResponse(open(filepath, 'rb'), content_type='application/zip', filename=filename, as_attachment=True)
+
             messages.error(request, 'Data is not available for this month')
 
         if all([p in request.POST for p in ['process', 'month', 'year']]):
