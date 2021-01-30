@@ -4,22 +4,46 @@ from django.contrib.gis.geos import GEOSGeometry
 import json
 
 
+def query_route_stops(id: int, direction: int = 0):
+    return """SELECT stop.*
+                FROM
+                stop,
+                (SELECT stop_id, route_id
+                FROM
+                    stop_time,
+                    (SELECT id, route_id, direction
+                    FROM trip
+                    WHERE route_id = {} and direction = '{}'
+                    GROUP BY shape_id, id, route_id, direction
+                    ) AS unique_trips
+                WHERE stop_time.trip_id = unique_trips.id
+                GROUP BY stop_id, route_id
+                ) AS unique_stops
+                WHERE stop.id = unique_stops.stop_id; """.format(id, direction).lstrip()
+
+
 def route_stops(self, request):
     message = [
-        'id attribute needs to be included in order to retrieve the correct data',
-        'e.g. {}/api/gtfs/route/stops/?id=<number>'.format(
-            self.request.get_host())
+        'route_id attribute needs to be included in order to retrieve the correct data',
+        'direction attribute is an optional requirement for the direction of the stops, default value=0, options are 0 & 1',
+        'e.g. {}/api/gtfs/route/stops/?route_id=<number>'.format(
+            self.request.get_host()),
+        'e.g. {}/api/gtfs/route/stops/?route_id=<number>&direction=<number>'.format(
+            self.request.get_host()),
     ]
-    if 'id' in request.GET:
+    if 'route_id' in request.GET:
+        direction = 0
         try:
-            id = int(request.GET['id'])
+            if 'direction' in request.GET:
+                direction = int(request.GET['direction'])
+            route_id = int(request.GET['route_id'])
         except:
-            message.append('id attribute must be integer value')
+            message.append(
+                'route_id and direction attributes must be integer value')
             return Response(message)
 
         cursor = connection.cursor()
-        cursor.execute(
-            "SELECT T3.* FROM trip AS T1 JOIN stop_time AS T2 ON T1.id=T2.trip_id AND route_id = {} JOIN stop AS T3 ON T2.stop_id=T3.id GROUP BY T3.id, T3.name;".format(id))
+        cursor.execute(query_route_stops(route_id, direction))
 
         desc = cursor.description
 
@@ -40,11 +64,6 @@ def route_stops(self, request):
                     obj[x] = y
 
             data.append(obj)
-
-        # data = [
-        #     dict(zip([col[0] for col in desc], row))
-        #     for row in cursor.fetchall()
-        # ]
 
         return Response(data)
     return Response(message)
