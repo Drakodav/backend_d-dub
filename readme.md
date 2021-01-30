@@ -1,7 +1,7 @@
 # Dynamo Dublin - Backend Api
 
-Api - https://api.thev-lad.com/api/gtfs/
-Realtime Api - https://api.thev-lad.com/api/gtfsr/
+Api - https://api.thev-lad.com/api/gtfs/  
+Realtime Api - https://api.thev-lad.com/api/gtfsr/  
 Admin - https://api.thev-lad.com/api/admin/  
 PgAdmin4 - https://api.thev-lad.com/pgadmin
 
@@ -50,7 +50,7 @@ sudo find . -type f -iname "*.sh" -exec chmod +x {} \;
 ```
 docker exec -it dynamo_backend bash
 rm gtfs.zip
-wget -O gtfs.zip https://www.transportforireland.ie/transitData/google_transit_dublinbus.zip
+wget -O gtfs.zip https://www.transportforireland.ie/transitData/google_transit_combined.zip
 python manage.py importgtfs gtfs.zip
 ```
 
