@@ -11,16 +11,19 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 import django_filters
 from django_filters.rest_framework import FilterSet
+from django.db.models.base import Model
+from .actions import route_stops
 
 
 # generate a default template filter to use in the viewset
-def getFilterClass(Model):
+def getFilterClass(my_model: Model):
     class MyFilter(FilterSet):
         class Meta:
-            if Model.__name__ == 'StopTime' or Model.__name__ == 'Frequency':
-                exclude = ['trip'] # Trip is a foreign key that can screw things up when filtering
+            if my_model.__name__ == 'StopTime' or my_model.__name__ == 'Frequency':
+                # Trip is a foreign key that can screw things up when filtering
+                exclude = ['trip']
 
-            model = Model
+            model = my_model
             fields = ('__all__')    # include all the fields from the Model
             filter_overrides = {    # any model types mathing these will have use these filter classes
                 models.CharField: {
@@ -58,27 +61,26 @@ def getFilterClass(Model):
 
 
 # generate a default template serialize
-# hyper model ser...
-def getSerializer(Model):
+def getSerializer(my_model: Model):
     class MySerializer(serializers.ModelSerializer):
         class Meta:
-            model = Model
+            model = my_model
             fields = ('__all__')
     return MySerializer
 
 
 # generate a default template viewSet
-def getViewSet(Model):
+def getViewSet(my_model: Model):
     class MyViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Manually change the title name e.g. API Root/ "Agency Root"
         def __init__(self, **kwargs) -> None:
-            self.name = Model.__name__ + str(' List')
+            self.name = my_model.__name__ + str(' List')
             super().__init__(**kwargs)
 
-        queryset = Model.objects.all().order_by('id')
-        serializer_class = getSerializer(Model)
-        filterset_class = getFilterClass(Model)
+        queryset = my_model.objects.all().order_by('id')
+        serializer_class = getSerializer(my_model)
+        filterset_class = getFilterClass(my_model)
 
         @action(methods=['get'], detail=False)
         def newest(self, request):
@@ -86,18 +88,22 @@ def getViewSet(Model):
             serializer = self.get_serializer_class()(newest)
             return Response(serializer.data)
 
+        if my_model.__name__ == 'Route':
+            @action(methods=['get'], detail=False, url_name='stops', url_path='stops')
+            def get_stops(self, request):
+                return route_stops(self, request)
     return MyViewSet
 
 
 # List all the models that need to be registered for our API
 bulkRoutes = [
     ('agency', Agency, 'Agency'),
-    ('block', Block, 'Block'),
-    ('farerule', FareRule, 'FareRule'),
-    ('fare', Fare, 'Fare'),
-    ('feedinfo', FeedInfo, 'FeedInfo'),
+    # ('block', Block, 'Block'),
+    # ('farerule', FareRule, 'FareRule'),
+    # ('fare', Fare, 'Fare'),
+    # ('feedinfo', FeedInfo, 'FeedInfo'),
     ('feed', Feed, 'Feed'),
-    ('frequency', Frequency, 'Frequency'),
+    # ('frequency', Frequency, 'Frequency'),
     ('route', Route, 'Route'),
     ('servicedate', ServiceDate, 'ServiceDate'),
     ('service', Service, 'Service'),
@@ -107,7 +113,7 @@ bulkRoutes = [
     ('stop', Stop, 'Stop'),
     ('transfer', Transfer, 'Transfer'),
     ('trip', Trip, 'Trip'),
-    ('zone', Zone, 'Zone')
+    # ('zone', Zone, 'Zone')
 ]
 
 
@@ -118,9 +124,3 @@ def getRouterUrls():
         router.register(r'{}'.format(r[0]), getViewSet(
             r[1]), basename='{}'.format(r[2]))
     return router.urls
-
-
-
-
-
-

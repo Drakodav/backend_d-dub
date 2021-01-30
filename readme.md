@@ -67,3 +67,11 @@ sudo apt-get install rabbitmq-server
 celery -A dynamoDub worker -l INFO
 celery -A dynamoDub beat
 ```
+
+docker container kill uwsgi
+
+```
+sudo ssh -i ../web-mapping_key.pem azureuser@40.121.42.196
+docker exec -it dynamo_backend bash
+pkill -f uwsgi -9
+```
