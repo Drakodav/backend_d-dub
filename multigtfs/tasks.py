@@ -27,6 +27,9 @@ from celery.app import shared_task
 
 @shared_task(ignore_result=False, track_started=True)
 def import_gtfs(gtfs_feed='gtfs.zip', name=None):
+    # wget -O gtfs.zip https://www.transportforireland.ie/transitData/google_transit_combined.zip
+    # place this file in the root of you project
+
     unset_name = 'Imported at %s' % datetime.now()
     name = name or unset_name
 
