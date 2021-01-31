@@ -10,12 +10,13 @@ def deleteGtfsModel(self):
     models = [Agency, Block, FareRule, Fare, FeedInfo, Feed, Frequency, Route,
               ServiceDate, Service, ShapePoint, Shape, StopTime, Stop, Transfer, Trip, Zone]
 
+    length = 1
     progress_recorder = ProgressRecorder(self)
     for model in models:
         query = model.objects.all()
-        length = query.count()
+        length += query.count()
         for i, record in enumerate(query.iterator(chunk_size=500)):
             record.delete()
             progress_recorder.set_progress(i+1, length)
-        print(model.__name__, ' deleted', length, 'records')
+        print(model.__name__ + ' deleted ' + str(length) + ' records')
     return 'success'
