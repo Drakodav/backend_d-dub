@@ -65,5 +65,6 @@ def route_stops(self, request):
 
             data.append(obj)
 
+        cursor.close
         return Response(data)
     return Response(message)

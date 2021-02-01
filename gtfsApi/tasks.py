@@ -1,22 +1,22 @@
 from celery.app import shared_task
-from multigtfs.models import (
-    Agency, Block, FareRule, Fare, FeedInfo, Feed, Frequency,
-    Route, ServiceDate, Service, ShapePoint, Shape, StopTime,
-    Stop, Transfer, Trip, Zone
-)
+from django.db import connection
 
 
 @shared_task(ignore_result=False, track_started=True)
 def delete_model():
-    models = [Agency, Block, FareRule, Fare, FeedInfo, Feed, Frequency, Route,
-              ServiceDate, Service, ShapePoint, Shape, StopTime, Stop, Transfer, Trip, Zone]
-
-    for model in models:
-        query = model.objects.all()
-        for record in query.iterator():
-            record.delete()
-        print(model.__name__ + ' deleted ' + ' records')
-    return 'success'
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            TRUNCATE 
+                Agency, Block, Fare_Rules, Fare, Feed_Info, Feed, Frequency, Route,
+                Service_Date, Service, Shape_Point, Shape, Stop_Time, Stop, Transfer, Trip, Zone;
+            """
+        )
+        cursor.close
+        return 'success'
+    except Exception as e:
+        return e
 
 
 @shared_task(ignore_result=False, track_started=True)
