@@ -226,7 +226,7 @@ class Base(models.Model):
         extra_counts = defaultdict(int)
         new_objects = []
         csv_reader = pd.read_csv(
-            txt_file, skipinitialspace=True, iterator=True, chunksize=10000)
+            txt_file, skipinitialspace=True, iterator=True, chunksize=5000)
         for chunk in csv_reader:
             if first:
                 columns = list(chunk.columns)
@@ -289,13 +289,13 @@ class Base(models.Model):
 
             try:
                 cls.objects.bulk_create(new_objects)
+                count += len(new_objects)
+                logger.info(
+                    "Imported %d %s",
+                    count, cls._meta.verbose_name_plural)
             except Exception as e:
                 print(count, new_objects, e)
 
-            count += len(new_objects)
-            logger.info(
-                "Imported %d %s",
-                count, cls._meta.verbose_name_plural)
             new_objects = []
 
         # Take note of extra fields

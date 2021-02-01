@@ -6,28 +6,21 @@ from multigtfs.models import (
 )
 
 
-@shared_task(bind=True, ignore_result=False, track_started=True)
-def deleteGtfsModel(self):
+@shared_task(ignore_result=False, track_started=True)
+def delete_model():
     models = [Agency, Block, FareRule, Fare, FeedInfo, Feed, Frequency, Route,
               ServiceDate, Service, ShapePoint, Shape, StopTime, Stop, Transfer, Trip, Zone]
 
-    length = 1
     for model in models:
         query = model.objects.all()
-        for record in query.iterator(chunk_size=500):
+        for record in query.iterator():
             record.delete()
-        print(model.__name__ + ' deleted ' + str(length) + ' records')
+        print(model.__name__ + ' deleted ' + ' records')
     return 'success'
 
 
-# from gtfsApi.tasks import deleteGtfsAgency
-# deleteGtfsAgency()
-# @shared_task(bind=True, ignore_result=False, track_started=True)
-def deleteGtfsAgency(
-        # self,
-        id):
-    models = (Agency, Route, ServiceDate, Service, ShapePoint,
-              Shape, StopTime, Stop, Transfer, Trip)
+@shared_task(ignore_result=False, track_started=True)
+def delete_agency(id):
 
     # get agency routes
     routes = [r.id for r in Route.objects.filter(agency=id).iterator()]
