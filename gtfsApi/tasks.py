@@ -22,48 +22,68 @@ def delete_model():
 @shared_task(ignore_result=False, track_started=True)
 def delete_agency(id):
 
-    # get agency routes
-    routes = [r.id for r in Route.objects.filter(agency=id).iterator()]
+    queries = [
+        # delete stop_time first            !!!revise
+        """
+        delete from stop_time
+        where exists (
+            select stimes.* 
+            from stop_time as stimes, (
+                select trips.id
+                from trip as trips, (
+                    select agency_id, id
+                    from  route
+                    where agency_id = {}
+                    group by agency_id, id
+                ) as my_routes
+                where my_routes.id = trips.route_id
+            ) as my_trips
+            where stimes.trip_id = my_trips.id
+        );
+        """.format(id),
+        # delete trip           !!! revise
+        """
+        delete from trip
+        where exists (
+            select trips.* 
+            from trip as trips, (
+                select agency_id, id
+                from  route
+                where agency_id = 168
+                group by agency_id, id
+            ) as my_routes
+            where my_routes.id = trips.route_id
+        );
+        """.format(id),
+        # delete routes not finished yet
+        """delete from route where agency_id = {};""".format(id),
+        # delete agency
+        """delete from agency where id = {};""".format(id),
 
-    trips = []
-    services = []
-    shapes = []
-    for r in routes:
-        trip, service, shape = [], [], []
-        for t in Trip.objects.filter(route=r).iterator():
-            trip.append(t.id)
-            service.append(t.service_id)
-            shape.append(t.shape)
-            t.delete()
-        trips.extend(trip)
-        services.extend(service)
-        shapes.extend(shapes)
-    print('deleted trips')
+        # delete shape_points       !revise
+        """
+        DELETE FROM shape_point
+        WHERE Exists (
+            select points.*
+            from shape_point as points, (
+                select shapes.id
+                from shape as shapes, (
+                    select trips.route_id, trips.shape_id
+                    from trip as trips, (
+                        select agency_id, id
+                        from  route
+                        where agency_id = {}
+                        group by agency_id, id
+                    ) as my_routes
+                    where my_routes.id = trips.route_id
+                    group by route_id, shape_id
+                ) as my_trips
+                where shapes.id = my_trips.shape_id
+                group by shapes.id
+            ) as my_shapes
+            where points.shape_id = my_shapes.id
+        );
+        """.format(id),
+    ]
 
-    for t in trips:
-        for stop in StopTime.objects.filter(trip=t).values('stop').distinct():
-            Stop.objects.get(id=stop).delete()
-
-        StopTime.objects.filter(trip=t).delete()
-    print('deleted stop and stoptime')
-
-    for s in shapes:
-        # delete shapePoints
-        ShapePoint.objects.filter(shape=s).delete()
-
-        # delete shapes
-        Shape.objects.get(id=s).delete()
-    print('deleted shape and shapepoints')
-
-    for s in services:
-        # delete serviceDate
-        ServiceDate.objects.filter(service=s).delete()
-
-        # delete service
-        Service.objects.get(id=s).delete()
-    print('service shape and servicedate')
-
-    # deleting agency should be last since in case theres an error there is still a reference to that agency
-    Agency.objects.get(id=id).delete()
-    print('deleted agency')
     return 'success'
