@@ -20,6 +20,8 @@ from datetime import datetime, date
 from logging import getLogger
 import re
 
+import pandas as pd
+
 from django.contrib.gis.db import models
 from django.db.models.fields.related import ManyToManyField
 from six import StringIO, text_type, PY3
@@ -216,78 +218,81 @@ class Base(models.Model):
                 val_map[csv_name] = converter
 
         # Read and convert the source txt
-        csv_reader = reader(txt_file, skipinitialspace=True)
+        first = True
+        columns = []
         unique_line = dict()
         count = 0
-        first = True
+        line_num = -1
         extra_counts = defaultdict(int)
         new_objects = []
-        for row in csv_reader:
+        csv_reader = pd.read_csv(
+            txt_file, skipinitialspace=True, iterator=True, chunksize=5000)
+        for chunk in csv_reader:
             if first:
-                # Read the columns
-                columns = row
+                columns = list(chunk.columns)
                 if columns[0].startswith(CSV_BOM):
                     columns[0] = columns[0][len(CSV_BOM):]
                 first = False
-                continue
 
-            if filter_func and not filter_func(zip(columns, row)):
-                continue
+            for _, r in chunk.iterrows():
+                line_num += 1
+                row = r.astype(str).values.tolist()
 
-            if not row:
-                continue
+                if filter_func and not filter_func(zip(columns, row)):
+                    continue
 
-            # Read a data row
-            fields = dict()
-            point_coords = [None, None]
-            ukey_values = {}
-            if cls._rel_to_feed == 'feed':
-                fields['feed'] = feed
-            for column_name, value in zip(columns, row):
-                if column_name not in name_map:
-                    val = null_convert(value)
-                    if val is not None:
-                        fields.setdefault('extra_data', {})[column_name] = val
-                        extra_counts[column_name] += 1
-                elif column_name in val_map:
-                    fields[name_map[column_name]] = val_map[column_name](value)
+                if not row:
+                    continue
+
+                # Read a data row
+                fields = dict()
+                point_coords = [None, None]
+                ukey_values = {}
+                if cls._rel_to_feed == 'feed':
+                    fields['feed'] = feed
+                for column_name, value in zip(columns, row):
+                    if column_name not in name_map:
+                        val = null_convert(value)
+                        if val is not None:
+                            fields.setdefault('extra_data', {})[
+                                column_name] = val
+                            extra_counts[column_name] += 1
+                    elif column_name in val_map:
+                        fields[name_map[column_name]
+                               ] = val_map[column_name](value)
+                    else:
+                        assert column_name in point_map
+                        pos, converter = point_map[column_name]
+                        point_coords[pos] = converter(value)
+
+                    # Is it part of the unique key?
+                    if column_name in cls._unique_fields:
+                        ukey_values[column_name] = value
+
+                # Join the lat/long into a point
+                if point_map:
+                    assert point_coords[0] and point_coords[1]
+                    fields['point'] = "POINT(%s)" % (' '.join(point_coords))
+
+                # Is the item unique?
+                ukey = tuple(ukey_values.get(u) for u in cls._unique_fields)
+                if ukey in unique_line:
+                    logger.warning(
+                        '%s line %d is a duplicate of line %d, not imported.',
+                        cls._filename, line_num, unique_line[ukey])
+                    continue
                 else:
-                    assert column_name in point_map
-                    pos, converter = point_map[column_name]
-                    point_coords[pos] = converter(value)
+                    unique_line[ukey] = line_num
 
-                # Is it part of the unique key?
-                if column_name in cls._unique_fields:
-                    ukey_values[column_name] = value
+                # Create after accumulating a batch
+                new_objects.append(cls(**fields))
 
-            # Join the lat/long into a point
-            if point_map:
-                assert point_coords[0] and point_coords[1]
-                fields['point'] = "POINT(%s)" % (' '.join(point_coords))
-
-            # Is the item unique?
-            ukey = tuple(ukey_values.get(u) for u in cls._unique_fields)
-            if ukey in unique_line:
-                logger.warning(
-                    '%s line %d is a duplicate of line %d, not imported.',
-                    cls._filename, csv_reader.line_num, unique_line[ukey])
-                continue
-            else:
-                unique_line[ukey] = csv_reader.line_num
-
-            # Create after accumulating a batch
-            new_objects.append(cls(**fields))
-            if len(new_objects) % batch_size == 0:  # pragma: no cover
-                cls.objects.bulk_create(new_objects)
-                count += len(new_objects)
-                logger.info(
-                    "Imported %d %s",
-                    count, cls._meta.verbose_name_plural)
-                new_objects = []
-
-        # Create remaining objects
-        if new_objects:
             cls.objects.bulk_create(new_objects)
+            count += len(new_objects)
+            logger.info(
+                "Imported %d %s",
+                count, cls._meta.verbose_name_plural)
+            new_objects = []
 
         # Take note of extra fields
         if extra_counts:
