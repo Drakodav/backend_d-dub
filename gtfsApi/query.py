@@ -1,7 +1,7 @@
 
 def route_stops_query(id: int, direction: int = 0):
     return """
-SELECT stop.*
+SELECT stop.*, unique_stops.stop_sequence
 FROM stop, (
 	SELECT stop_id, route_id	
 	FROM stop_time,(
@@ -36,7 +36,7 @@ FROM stop, (
 	order by stop_time.stop_sequence, to_timestamp(arrival_time)::time
 	) AS unique_stops
 WHERE stop.id = unique_stops.stop_id
-group by stop.stop_id, stop.id
+group by stop.stop_id, stop.id, unique_stops.stop_sequence
 ;
 """.format(id, direction).lstrip()
 
