@@ -43,7 +43,7 @@ class AgencyAdmin(AdminConfirmMixin, admin.ModelAdmin):
         [delete_agency.delay(q.id, q.name) for q in queryset]
         self.message_user(
             request, 'Deleting agency in progress, task may take a while')
-        new_path = '/api/admin/django_celery_results/taskresult/'
+        new_path = '/api/admin/django_celery_results/taskresult/?task_name=multigtfs.tasks.delete_agency'
         return HttpResponseRedirect(new_path)
 
     delete_model_agency.short_description = "Delete Model by Agency"
@@ -66,7 +66,7 @@ class FeedAdmin(AdminConfirmMixin, admin.ModelAdmin):
         delete_model.delay()
         self.message_user(
             request, 'Deleting entire model in progress, task may take a while !No Messing')
-        new_path = '/api/admin/django_celery_results/taskresult/'
+        new_path = '/api/admin/django_celery_results/taskresult/?task_name=gtfsApi.tasks.deleteGtfsModel'
         return HttpResponseRedirect(new_path)
 
     delete_model.short_description = "Delete entire gtfs model data !No Messing"
