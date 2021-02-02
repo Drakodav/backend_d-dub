@@ -37,6 +37,7 @@ FROM stop, (
 	) AS unique_stops
 WHERE stop.id = unique_stops.stop_id
 group by stop.stop_id, stop.id, unique_stops.stop_sequence
+order by unique_stops.stop_sequence
 ;
 """.format(id, direction).lstrip()
 
