@@ -3,7 +3,7 @@ def route_stops_query(id: int, direction: int = 0):
     return """
 SELECT stop.*, unique_stops.stop_sequence
 FROM stop, (
-	SELECT stop_id, route_id	
+	SELECT stop_id, route_id, stop_sequence
 	FROM stop_time,(
 		select 
 			my_trips.*,
