@@ -13,8 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from __future__ import unicode_literals
+from admin_confirm.admin import confirm_action
+from django.core.exceptions import PermissionDenied
 
 from django.contrib.gis import admin
+from .tasks import delete_agency, delete_model
+from admin_confirm import AdminConfirmMixin
+from django.http import HttpResponseRedirect
 
 from multigtfs.app_settings import MULTIGTFS_OSMADMIN
 from multigtfs.models import (
@@ -24,8 +29,48 @@ from multigtfs.models import (
 geo_admin = admin.OSMGeoAdmin if MULTIGTFS_OSMADMIN else admin.GeoModelAdmin
 
 
-class AgencyAdmin(admin.ModelAdmin):
+class AgencyAdmin(AdminConfirmMixin, admin.ModelAdmin):
+    list_display = ['name']
     raw_id_fields = ('feed', )
+    actions = ['delete_model_agency']
+
+    # used for confirmation message
+    confirm_change = True
+    confirmation_fields = []
+
+    @confirm_action
+    def delete_model_agency(self, request, queryset):
+        [delete_agency.delay(q.id, q.name) for q in queryset]
+        self.message_user(
+            request, 'Deleting agency in progress, task may take a while')
+        new_path = '/api/admin/django_celery_results/taskresult/'
+        return HttpResponseRedirect(new_path)
+
+    delete_model_agency.short_description = "Delete Model by Agency"
+    delete_model_agency.allowed_permissions = ('change',)
+
+
+class FeedAdmin(AdminConfirmMixin, admin.ModelAdmin):
+    list_display = ['name']
+    actions = ['delete_model']
+
+    # used for confirmation message
+    confirm_change = True
+    confirmation_fields = []
+
+    @confirm_action
+    def delete_model(self, request):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+
+        delete_model.delay()
+        self.message_user(
+            request, 'Deleting entire model in progress, task may take a while !No Messing')
+        new_path = '/api/admin/django_celery_results/taskresult/'
+        return HttpResponseRedirect(new_path)
+
+    delete_model.short_description = "Delete entire gtfs model data !No Messing"
+    delete_model.allowed_permissions = ('change',)
 
 
 class BlockAdmin(admin.ModelAdmin):
@@ -92,7 +137,7 @@ admin.site.register(Agency, AgencyAdmin)
 admin.site.register(Block, BlockAdmin)
 admin.site.register(Fare, FareAdmin)
 admin.site.register(FareRule, FareRuleAdmin)
-admin.site.register(Feed)
+admin.site.register(Feed, FeedAdmin)
 admin.site.register(FeedInfo, FeedInfoAdmin)
 admin.site.register(Frequency, FrequencyAdmin)
 admin.site.register(Route, RouteAdmin)

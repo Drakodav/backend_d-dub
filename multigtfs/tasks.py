@@ -1,17 +1,3 @@
-#
-# Copyright 2012-2014 John Whitlock
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 from __future__ import unicode_literals
 from datetime import datetime
 import logging
@@ -20,9 +6,10 @@ from django.db import connection
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
-from multigtfs.models import Agency, Feed, Service
-
 from celery.app import shared_task
+from .query import delete_agency_query, delete_model_query
+from django.db import transaction
+from multigtfs.models import Agency, Feed, Service
 
 
 @shared_task(ignore_result=False, track_started=True)
@@ -83,3 +70,39 @@ def import_gtfs(gtfs_feed='gtfs.zip', name=None):
             feed.save()
 
     return ("Successfully imported Feed %s\n" % (feed))
+
+
+@shared_task(ignore_result=False, track_started=True)
+def delete_model():
+    cursor = connection.cursor()
+    try:
+        with transaction.atomic():
+            with transaction.atomic():
+                cursor.execute(delete_model_query())
+
+    except Exception as e:
+        cursor.close
+        raise e
+
+    cursor.close
+    return 'success'
+
+
+@shared_task(ignore_result=False, track_started=True)
+def delete_agency(id: int, name: str):
+
+    cursor = connection.cursor()
+    try:
+        with transaction.atomic():
+            if Agency.objects.filter(id=id).exists():
+                with transaction.atomic():
+                    cursor.execute(delete_agency_query(id))
+            else:
+                cursor.close
+                return 'id: {}, does not exist in the database'.format(id)
+    except Exception as e:
+        cursor.close
+        raise e
+
+    cursor.close
+    return 'success deleted {}'.format(name)

@@ -1,25 +1,8 @@
 from django.db import connection
 from rest_framework.response import Response
 from django.contrib.gis.geos import GEOSGeometry
+from .query import route_stops_query
 import json
-
-
-def query_route_stops(id: int, direction: int = 0):
-    return """SELECT stop.*
-                FROM
-                stop,
-                (SELECT stop_id, route_id
-                FROM
-                    stop_time,
-                    (SELECT id, route_id, direction
-                    FROM trip
-                    WHERE route_id = {} and direction = '{}'
-                    GROUP BY shape_id, id, route_id, direction
-                    ) AS unique_trips
-                WHERE stop_time.trip_id = unique_trips.id
-                GROUP BY stop_id, route_id
-                ) AS unique_stops
-                WHERE stop.id = unique_stops.stop_id; """.format(id, direction).lstrip()
 
 
 def route_stops(self, request):
@@ -43,7 +26,7 @@ def route_stops(self, request):
             return Response(message)
 
         cursor = connection.cursor()
-        cursor.execute(query_route_stops(route_id, direction))
+        cursor.execute(route_stops_query(route_id, direction))
 
         desc = cursor.description
 
