@@ -12,7 +12,47 @@ from rest_framework.response import Response
 import django_filters
 from django_filters.rest_framework import FilterSet
 from django.db.models.base import Model
-from .actions import route_stops
+from .actions import get_departures_action, get_trips_action, get_stops_action
+
+
+# generate a default template serialize
+class QuerySerializer(serializers.Serializer):
+    action = serializers.CharField()
+    url = serializers.URLField()
+    usage = serializers.CharField()
+
+
+# generate a default template viewSet
+class QueryViewSet(viewsets.ReadOnlyModelViewSet):
+
+    # queryset = my_model.objects.all().order_by('id')
+    serializer_class = QuerySerializer
+
+    def get_queryset(self):
+        urlPath = self.request.get_host()+self.request.get_full_path()
+        messages = [
+            ('', '', 'Common queries are provided through the extra actions section'),
+            ('get_trip', 'route_trip', 'get a single trip from a route'),
+            ('get_stops', 'trip_stops', 'get the stops assosciated with a trip'),
+            ('get_departures', 'stop_departures',
+             'get trips assosciated to a stop'),
+        ]
+        array = [
+            {'action': m[0], 'url': '{}{}'.format(urlPath, m[1]), 'usage': m[2]} for m in messages
+        ]
+        return list(array)
+
+    @action(methods=['get'], detail=False, url_name='route_trip', url_path='route_trip')
+    def get_trips(self, request):
+        return get_trips_action(self, request)
+
+    @action(methods=['get'], detail=False, url_name='trip_stops', url_path='trip_stops')
+    def get_stops(self, request):
+        return get_stops_action(self, request)
+
+    @action(methods=['get'], detail=False, url_name='stop_departures', url_path='stop_departures')
+    def get_departures(self, request):
+        return get_departures_action(self, request)
 
 
 # generate a default template filter to use in the viewset
@@ -88,10 +128,6 @@ def getViewSet(my_model: Model):
             serializer = self.get_serializer_class()(newest)
             return Response(serializer.data)
 
-        if my_model.__name__ == 'Route':
-            @action(methods=['get'], detail=False, url_name='stops', url_path='stops')
-            def get_stops(self, request):
-                return route_stops(self, request)
     return MyViewSet
 
 
@@ -123,4 +159,5 @@ def getRouterUrls():
     for r in bulkRoutes:
         router.register(r'{}'.format(r[0]), getViewSet(
             r[1]), basename='{}'.format(r[2]))
+    router.register('query', QueryViewSet, 'Query')
     return router.urls
