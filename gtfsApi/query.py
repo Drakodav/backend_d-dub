@@ -51,7 +51,7 @@ order by stop_time.stop_sequence
 def stop_departures_query(stop_id: int):
     return """
 select  
-	to_timestamp(stop_time.departure_time)::time - current_time(0)::time as departure_time,
+	(to_timestamp(stop_time.departure_time)::time - current_time(0)::time)::time as departure_time,
 	route.short_name,
  	trip.id, 
  	trip.trip_id, 
