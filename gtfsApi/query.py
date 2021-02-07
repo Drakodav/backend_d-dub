@@ -32,11 +32,11 @@ left join service_date on service.id = service_date.service_id
 		where trip.route_id = {} and trip.direction = '{}'
 		group by trip.id
 	) as my_trips
-	where to_timestamp(stop_time.departure_time)::time >= current_time(0)::time
+	where (to_timestamp(stop_time.departure_time)::time >= current_time(0)::time or true)
 		and stop_time.stop_sequence = 1
 		and stop_time.trip_id = my_trips.id
+	group by my_trips.id, stop_time.departure_time
 	order by stop_time.departure_time
-	limit 10
 ) as one_trip
 where my_service.dow = true
 	and trip.service_id = my_service.id 
