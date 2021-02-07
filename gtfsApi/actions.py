@@ -124,8 +124,8 @@ def get_departures_action(self, request):
                                 departure += stop_update.departure.delay
                             if stop_update.HasField('arrival'):
                                 arrival += stop_update.arrival.delay
-                    parsed_data[trip_idx]["time_delta"] = str(
-                        dict({'arrival': arrival, 'departure': departure}))
+                    parsed_data[trip_idx]["time_delta"] = dict(
+                        {'arrival': arrival, 'departure': departure})
 
                     # print('time delta: ', departure, arrival)
                     # print('end... \n')
