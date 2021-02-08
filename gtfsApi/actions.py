@@ -121,9 +121,9 @@ def get_departures_action(self, request):
                         if stop_update.stop_sequence <= curr_stop_sequence:
                             # print(stop_update, '\n_______________________________')
                             if stop_update.HasField('departure'):
-                                departure += stop_update.departure.delay
+                                departure = 0 if stop_update.departure.delay == 0 else stop_update.departure.delay
                             if stop_update.HasField('arrival'):
-                                arrival += stop_update.arrival.delay
+                                arrival = 0 if stop_update.arrival.delay == 0 else arrival+stop_update.arrival.delay
                     parsed_data[trip_idx]["time_delta"] = dict(
                         {'arrival': arrival, 'departure': departure})
 
