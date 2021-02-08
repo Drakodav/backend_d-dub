@@ -63,8 +63,6 @@ def trip_from_route_query(route_id: int, direction: int = 0):
 select trip.* 
 from trip
 left join stop_time on stop_time.trip_id = trip.id
-left join service on service.id = trip.service_id
-left join service_date on service.id = service_date.service_id
 , (
 	select 
 		id,
@@ -85,7 +83,7 @@ left join service_date on service.id = service_date.service_id
 where my_service.dow = true
 	and to_timestamp(stop_time.departure_time)::time >= current_time(0)::time
 	and trip.service_id = my_service.id 
-	and not service.id in (select service_id from service_date where date = current_date)
+	and not my_service.id in (select service_id from service_date where date = current_date group by service_date.id)
 	and trip.route_id = {} and trip.direction = '{}' 
 group by trip.id,stop_time.id
 order by stop_time.departure_time
