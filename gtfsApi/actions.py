@@ -13,25 +13,20 @@ import json
 def get_stops_action(self, request):
     urlPath = self.request.get_host() + self.request.get_full_path()
     message = [
-        'route_id attribute needs to be included in order to retrieve the correct data',
-        'direction attribute is an optional requirement for the direction of the stops, default value=0, options are 0 & 1',
-        'e.g. {}?route_id=<number>'.format(urlPath),
-        'e.g. {}?route_id=<number>&direction=<number>'.format(urlPath),
+        'trip_id attribute needs to be included in order to retrieve the correct data',
+        'e.g. {}?trip_id=<number>'.format(urlPath),
     ]
 
-    if 'route_id' in request.GET:
-        direction = 0
+    if 'trip_id' in request.GET:
         try:
-            if 'direction' in request.GET:
-                direction = int(request.GET['direction'])
-            route_id = int(request.GET['route_id'])
+            trip_id = int(request.GET['trip_id'])
         except:
             message.append(
-                'route_id and direction attributes must be integer value')
+                'trip_id and direction attributes must be integer value')
             return Response(message)
 
         cursor = connection.cursor()
-        cursor.execute(route_stops_query(route_id, direction))
+        cursor.execute(route_stops_query(trip_id))
         desc = cursor.description
         cursorData = cursor.fetchall()
 
