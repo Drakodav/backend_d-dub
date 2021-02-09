@@ -7,7 +7,6 @@ from django.shortcuts import render
 from gtfsRApi.tasks import download_realtime_data
 from dynamoDub.settings import STATIC_ROOT
 
-
 # from celery import current_app
 from celery.utils.log import get_logger
 
@@ -15,9 +14,14 @@ logger = get_logger(__name__)
 
 
 class GtfsRApiAdmin(admin.ModelAdmin):
-    list_display = ['timestamp']
-    ordering = ['-timestamp']
+    show_full_result_count = False
+    readonly_fields = ('id', 'timestamp', 'data')
+    list_display = ['id', 'timestamp']
+    ordering = ['-id']
     actions = ['download_records']
+
+    def get_queryset(self, request):
+        return GtfsRApi.objects.only('id', 'timestamp')
 
     # https://stackoverflow.com/questions/4500924/django-admin-action-without-selecting-objects
     # allows for action to work without selection any object
