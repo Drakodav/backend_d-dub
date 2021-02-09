@@ -14,15 +14,15 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var progressUrl = "{% url 'celery_progress:task_status' task_id %}";
-            document.getElementById('dwnButton').disabled = 'True';
-            document.getElementById('bckButton').disabled = 'True';
+            document.getElementById('dwnButton').disabled = true;
+            document.getElementById('bckButton').disabled = true;
 
             function customResult(resultElement, result) {
-                document.getElementById('bckButton').disabled = 'False';
+                document.getElementById('bckButton').disabled = false;
 
                 document.getElementById('dwnButton').name = 'download';
                 document.getElementById('dwnButton').value = 'Download';
-                document.getElementById('dwnButton').disabled = 'False';
+                document.getElementById('dwnButton').disabled = false;
                 document.getElementById('dwnButton').click();
             }
 
