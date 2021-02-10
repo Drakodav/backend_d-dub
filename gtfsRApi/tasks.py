@@ -17,7 +17,7 @@ def gtfs_r_api():
 
     try:
         response = requests.get(
-            url='https://api.nationaltransport.ie/gtfsrtest/?format=json', headers=headers)
+            url='https://gtfsr.transportforireland.ie/v1/?format=json', headers=headers)
 
         data = response.json()
 

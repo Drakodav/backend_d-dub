@@ -19,6 +19,7 @@ select
 	to_timestamp(stop_time.departure_time)::time as departure_time,
 	route.short_name,
 	route.route_id,
+	stop_time.stop_sequence,
  	trip.id, 
  	trip.trip_id, 
  	trip.headsign, 

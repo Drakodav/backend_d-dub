@@ -13,6 +13,6 @@ class MySerializer(serializers.ModelSerializer):
 class RealtimeGTFS(APIView):
 
     def get(self, request, format=None):
-        record = GtfsRApi.objects.order_by('timestamp').last()
+        record = GtfsRApi.objects.order_by('id').last()
         serializer = MySerializer(record)
         return Response(serializer.data)

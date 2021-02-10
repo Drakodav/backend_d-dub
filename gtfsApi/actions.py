@@ -3,9 +3,9 @@ from rest_framework.response import Response
 from django.contrib.gis.geos import GEOSGeometry
 from .query import route_stops_query, stop_departures_query, trip_from_route_query
 from gtfsRApi.models import GtfsRApi
-from multigtfs.models import Stop, StopTime
 from google.transit import gtfs_realtime_pb2
-from google.protobuf.json_format import ParseDict
+from google.protobuf.json_format import ParseDict, MessageToDict
+from django.conf import settings
 import requests
 import json
 
@@ -90,40 +90,40 @@ def get_departures_action(self, request):
 
         trip_ids = [r["trip_id"] for r in parsed_data]
 
-        realtime_data = GtfsRApi.objects.order_by('timestamp').last().data
-        # realtime_data = requests.get(
-        #     url='https://api.thev-lad.com/api/gtfsr/').json()["data"]
+        if settings.PRODUCTION:
+            realtime_data = GtfsRApi.objects.order_by('id').last().data
+        else:
+            realtime_data = requests.get(
+                url='https://api.thev-lad.com/api/gtfsr/').json()["data"]
+
         feed = gtfs_realtime_pb2.FeedMessage()
         ParseDict(realtime_data, feed)
-        curr_stop = Stop.objects.get(id=stop_id)
 
         for entity in feed.entity:
             if entity.HasField('trip_update'):
-                trip_update = entity.trip_update
-                stop_time_update = trip_update.stop_time_update
-                trip = trip_update.trip
-                trip_id = str(trip.trip_id).replace('-b12-', '-d12-', 1)
+                stop_time_update = entity.trip_update.stop_time_update
+                trip_id = str(entity.trip_update.trip.trip_id).replace(
+                    '-b12-', '-d12-', 1)
 
                 if trip_id in trip_ids:
-                    # print(trip)
-                    trip_idx = trip_ids.index(trip_id)
-                    curr_stop_sequence = StopTime.objects.get(
-                        trip_id=parsed_data[trip_idx]["id"], stop_id=curr_stop.id).stop_sequence
-                    # print('current stop sequece: ', curr_stop_sequence)
+                    idx = trip_ids.index(trip_id)
+                    curr_stop_sequence = parsed_data[idx]["stop_sequence"]
+
                     departure = 0
                     arrival = 0
                     for stop_update in stop_time_update:
                         if stop_update.stop_sequence <= curr_stop_sequence:
-                            # print(stop_update, '\n_______________________________')
                             if stop_update.HasField('departure'):
-                                departure = 0 if stop_update.departure.delay == 0 else stop_update.departure.delay
+                                departure = 0 if stop_update.departure.delay == 0 \
+                                    else departure + stop_update.departure.delay
                             if stop_update.HasField('arrival'):
-                                arrival = 0 if stop_update.arrival.delay == 0 else arrival+stop_update.arrival.delay
-                    parsed_data[trip_idx]["time_delta"] = dict(
-                        {'arrival': arrival, 'departure': departure})
+                                arrival = 0 if stop_update.arrival.delay == 0 \
+                                    else arrival+stop_update.arrival.delay
 
-                    # print('time delta: ', departure, arrival)
-                    # print('end... \n')
+                    parsed_data[idx]["time_delta"] = {
+                        'arrival': arrival, 'departure': departure}
+                    # parsed_data[idx]["trip_update"] = MessageToDict(
+                    #     trip_update)
 
         return Response(parsed_data)
     return Response(message)

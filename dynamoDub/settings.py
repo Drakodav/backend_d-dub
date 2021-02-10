@@ -15,6 +15,13 @@ from pathlib import Path
 import socket
 from dotenv import load_dotenv
 
+hostnames = ["DESKTOP-9D122S4"]
+if socket.gethostname() in hostnames:
+    PRODUCTION = False
+else:
+    PRODUCTION = True
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'))
@@ -26,7 +33,7 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = not PRODUCTION
 
 ALLOWED_HOSTS = []
 
@@ -165,8 +172,7 @@ STATICFILES_DIRS = [
 ]
 ADMIN_MEDIA_PREFIX = '/static/admin/'
 
-hostnames = ["DESKTOP-9D122S4"]
-if socket.gethostname() in hostnames:
+if not PRODUCTION:
     DATABASES["default"]["HOST"] = "localhost"
     DATABASES["default"]["PORT"] = 25432
 
