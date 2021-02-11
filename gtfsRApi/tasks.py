@@ -5,6 +5,7 @@ import requests
 from .models import GtfsRApi
 from celery_progress.backend import ProgressRecorder
 from dynamoDub.settings import STATIC_ROOT
+import json
 
 
 @shared_task
@@ -43,7 +44,7 @@ def download_realtime_data(self, year: int, month: int):
             length = records.count()
             with zipfile.ZipFile(os.path.join(STATIC_ROOT, 'GtfsRRecords.zip'), 'w') as zf:
                 for i, record in enumerate(records.iterator(chunk_size=500)):
-                    zf.writestr("{}.json".format(i), str(record),
+                    zf.writestr("{}.json".format(i), json.dumps(record),
                                 compress_type=zipfile.ZIP_DEFLATED)
                     progress_recorder.set_progress(i+1, length)
 
