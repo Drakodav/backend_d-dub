@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'multigtfs',
     'gtfsApi',
     'gtfsRApi',
+    'ml',
 ]
 
 MIDDLEWARE = [

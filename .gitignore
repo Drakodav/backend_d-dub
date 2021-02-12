@@ -6,7 +6,7 @@ staticfiles/static
 .env
 celerybeat-schedule
 *.zip
-
+*.csv
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
