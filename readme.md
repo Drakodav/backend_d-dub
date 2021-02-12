@@ -75,3 +75,10 @@ sudo ssh -i ../web-mapping_key.pem azureuser@40.121.42.196
 docker exec -it dynamo_backend bash
 pkill -f uwsgi -9
 ```
+
+install ipython kernel for local venv.
+make sure local venv is activated
+
+```
+python3 -m ipykernel install --user --name=projectname
+```
