@@ -11,8 +11,10 @@ import time
 from datetime import datetime
 
 __file__ = Path().cwd()
-gtfs_records_zip = os.path.join(__file__, 'GtfsRRecords.zip')
-gtfs_csv_zip = os.path.join(__file__, 'gtfsr_csv.zip')
+outdir = os.path.join(__file__, 'output')
+gtfs_records_zip = os.path.join(__file__, 'data', 'GtfsRRecords.zip')
+gtfs_csv_zip = os.path.join(outdir, 'gtfsr_csv.zip')
+gtfs_final_csv_path = os.path.join(outdir, 'gtfsr.csv')
 
 
 # Template Function: connect to database and run query.
@@ -91,32 +93,40 @@ def process_gtfsr_to_csv():
                     print('{}.json is a bad file, continue'.format(i))
                     continue
 
+                # get feed timestamp and iterate through all the entities
                 timestamp = datetime.fromtimestamp(feed.header.timestamp)
                 for entity in feed.entity:
                     if entity.HasField('trip_update'):
                         trip_id = entity.trip_update.trip.trip_id
 
+                        # if the trip id exists in our database when can then continue processing
                         if trip_id in trip_id_list:
                             trip = entity.trip_update.trip
                             stop_time_update = entity.trip_update.stop_time_update
 
+                            # for every stop_time_update we append add the fields needed
                             for s in stop_time_update:
                                 arr = s.arrival.delay if s.HasField(
                                     'arrival') else 0
                                 entity_data.append(
                                     [trip.trip_id, trip.start_date, trip.start_time, s.stop_sequence, s.departure.delay, s.stop_id, arr, timestamp])
 
+                # friendly printing to update user
                 if i % 100 == 0:
                     print('{}/{}'.format(i, dirs_len),
                           'time: {}s'.format(round(time.time() - start)))
 
+                # only if we have an existing trip in the feed we can produce a csv file
                 if len(entity_data) > 0:
                     # create the entity
                     entity_df = pd.DataFrame(entity_data, columns=[
                                              'trip_id', 'start_date', 'start_time', 'stop_sequence', 'departure', 'stop_id', 'arrival', 'timestamp'])
-                    df = pd.merge(entity_df, stop_df, on=['stop_id'])
-                    del df['stop_id']
 
+                    # merge the entity stop_id data with the stop lat lon from database
+                    df = pd.merge(entity_df, stop_df, on=['stop_id'])
+                    del df['stop_id']  # delete extra stop_id field
+
+                    # write csv to zip
                     zf.writestr("{}.csv".format(i), df.to_csv(header=False, index=False),
                                 compress_type=zipfile.ZIP_DEFLATED)
 
@@ -124,6 +134,7 @@ def process_gtfsr_to_csv():
     return
 
 
+# here we combine all the zips from the csv into a dataframe and export to one csv file
 def combine_csv():
     start = time.time()
     columns = ['trip_id', 'start_date', 'start_time',
@@ -136,7 +147,7 @@ def combine_csv():
         combined_csv = pd.concat(
             [pd.read_csv(zip.open(f), header=None) for f in dirs])
         combined_csv.columns = columns
-        combined_csv.to_csv('gtfsr_combined_csv.csv', index=False, header=True)
+        combined_csv.to_csv(gtfs_final_csv_path, index=False, header=True)
 
     print('finished cobining the zip files, time: {}'.format(
         round(time.time() - start)))
@@ -144,6 +155,8 @@ def combine_csv():
 
 
 if __name__ == "__main__":
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
     # execute only if run as a script
     process_gtfsr_to_csv()
     combine_csv()
