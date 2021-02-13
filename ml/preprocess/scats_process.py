@@ -1,15 +1,12 @@
 import os
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import matplotlib.pyplot as plt
-import seaborn as sns
 from datetime import datetime
 import time
 
-__file__ = Path().cwd()
-outdir = os.path.join(__file__, 'output')
-scatsFilesPath = os.path.join(__file__, 'data')
+dir = os.path.dirname(__file__)
+outdir = os.path.join(dir, 'output')
+scatsFilesPath = os.path.join(dir, 'data')
 finalScatsPath = os.path.join(outdir, 'processed_scats.csv')
 
 

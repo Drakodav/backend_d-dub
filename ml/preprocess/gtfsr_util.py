@@ -3,16 +3,15 @@ import zipfile
 from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import Parse
 from django.contrib.gis.geos import GEOSGeometry
-from pathlib import Path
 import numpy as np
 import pandas as pd
 import psycopg2
 import time
 from datetime import datetime
 
-__file__ = Path().cwd()
-outdir = os.path.join(__file__, 'output')
-gtfs_records_zip = os.path.join(__file__, 'data', 'GtfsRRecords.zip')
+dir = os.path.dirname(__file__)
+outdir = os.path.join(dir, 'output')
+gtfs_records_zip = os.path.join(dir, 'data', 'GtfsRRecords.zip')
 gtfs_csv_zip = os.path.join(outdir, 'gtfsr_csv.zip')
 gtfs_final_csv_path = os.path.join(outdir, 'gtfsr.csv')
 
