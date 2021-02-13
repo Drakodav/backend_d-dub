@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import psycopg2
 import time
+from datetime import datetime
 
 __file__ = Path().cwd()
 gtfs_records_zip = os.path.join(__file__, 'GtfsRRecords.zip')
@@ -90,6 +91,7 @@ def process_gtfsr_to_csv():
                     print('{}.json is a bad file, continue'.format(i))
                     continue
 
+                timestamp = datetime.fromtimestamp(feed.header.timestamp)
                 for entity in feed.entity:
                     if entity.HasField('trip_update'):
                         trip_id = entity.trip_update.trip.trip_id
@@ -102,7 +104,7 @@ def process_gtfsr_to_csv():
                                 arr = s.arrival.delay if s.HasField(
                                     'arrival') else 0
                                 entity_data.append(
-                                    [trip.trip_id, trip.start_date, trip.start_time, s.stop_sequence, s.departure.delay, s.stop_id, arr])
+                                    [trip.trip_id, trip.start_date, trip.start_time, s.stop_sequence, s.departure.delay, s.stop_id, arr, timestamp])
 
                 if i % 100 == 0:
                     print('{}/{}'.format(i, dirs_len),
@@ -111,7 +113,7 @@ def process_gtfsr_to_csv():
                 if len(entity_data) > 0:
                     # create the entity
                     entity_df = pd.DataFrame(entity_data, columns=[
-                                             'trip_id', 'start_date', 'start_time', 'stop_sequence', 'departure', 'stop_id', 'arrival'])
+                                             'trip_id', 'start_date', 'start_time', 'stop_sequence', 'departure', 'stop_id', 'arrival', 'timestamp'])
                     df = pd.merge(entity_df, stop_df, on=['stop_id'])
                     del df['stop_id']
 
@@ -125,7 +127,7 @@ def process_gtfsr_to_csv():
 def combine_csv():
     start = time.time()
     columns = ['trip_id', 'start_date', 'start_time',
-               'stop_sequence', 'departure', 'arrival', 'lon', 'lat']
+               'stop_sequence', 'departure', 'arrival', 'timestamp', 'lon', 'lat']
 
     # read from the gtfs records
     with zipfile.ZipFile(gtfs_csv_zip, 'r') as zip:
@@ -145,3 +147,6 @@ if __name__ == "__main__":
     # execute only if run as a script
     process_gtfsr_to_csv()
     combine_csv()
+
+    # remove the generated csv file at the end
+    os.remove(gtfs_csv_zip)
