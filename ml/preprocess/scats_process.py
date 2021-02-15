@@ -100,7 +100,7 @@ def process_scats_data():
     dataset['day'] = days
     del dataset['End_Time']
 
-    dataset.columns = ['site', 'sum_volume', 'avg_volume', 'lat',
+    dataset.columns = ['site', 'sum_vol', 'avg_vol', 'lat',
                        'lon', 'site_desc', 'region', 'dow', 'hour', 'month', 'day']
 
     print('processed data, time: {}s'.format(round(time.time() - start)))
@@ -116,3 +116,6 @@ if __name__ == "__main__":
 
     # execute only if run as a script
     process_scats_data()
+
+    if os.path.exists(finalScatsPath+'.hdf5'):
+        os.remove(finalScatsPath+'.hdf5')

@@ -162,3 +162,6 @@ if __name__ == "__main__":
 
     # remove the generated csv file at the end
     os.remove(gtfs_csv_zip)
+
+    if os.path.exists(gtfs_final_csv_path+'.hdf5'):
+        os.remove(gtfs_final_csv_path+'.hdf5')
