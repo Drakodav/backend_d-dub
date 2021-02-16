@@ -8,6 +8,8 @@ celerybeat-schedule
 *.zip
 *.csv
 *.hdf5
+ml/processing/output/*
+ml/processing/data/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

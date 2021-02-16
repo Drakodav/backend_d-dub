@@ -1,3 +1,5 @@
+from dask.distributed import Client
+import joblib
 from sklearn.ensemble import RandomForestRegressor
 from vaex.ml.sklearn import Predictor
 import vaex.ml
@@ -14,6 +16,9 @@ model_out = os.path.join(outdir, 'scats_model.json')
 # we create the scats model which can be used to predict unkown avg_volumes of traffic for a
 # lat: radians, lon: radians, dayOfWeek: int, hourOfDay: int
 def create_scats_ml_model():
+
+    client = Client(n_workers=2, threads_per_worker=4,
+                    processes=False, memory_limit='4GB')
 
     start = time.time()
     print('starting scats ml modeling')
@@ -37,11 +42,8 @@ def create_scats_ml_model():
     cycl_transform_dow = vaex.ml.CycleTransformer(features=['dow'], n=7)
     df = cycl_transform_dow.fit_transform(df)
 
-    cycl_transform_day = vaex.ml.CycleTransformer(features=['day'], n=31)
-    df = cycl_transform_day.fit_transform(df)
-
     # split into train and test
-    df_train, df_test = df.ml.train_test_split(test_size=0.2, verbose=False)
+    df_train, df_test = df.ml.train_test_split(test_size=0, verbose=False)
 
     feats = df_train.get_column_names(regex='pca') + \
         df_train.get_column_names(regex='.*_x') + \
@@ -52,8 +54,7 @@ def create_scats_ml_model():
         round(time.time() - start)))
 
     # create a randomForestRegression model
-    model = RandomForestRegressor(
-        random_state=42, n_estimators=7*24, oob_score=True)
+    model = RandomForestRegressor(random_state=42,  n_estimators=7*24)
     vaex_model = Predictor(
         features=feats,
         target=target,
@@ -62,18 +63,19 @@ def create_scats_ml_model():
     )
 
     # here we fit and train the model
-    vaex_model.fit(df=df_train)
+    with joblib.parallel_backend('dask'):
+        vaex_model.fit(df=df_train)
+        print('\n\nmodel created, time: {}s'.format(round(time.time() - start)))
 
-    print('model created, time: {}s'.format(round(time.time() - start)))
+    client.restart()
 
-    # trained model
-    df_train = vaex_model.transform(df_train)
+    with joblib.parallel_backend('dask'):
+        joblib.dump(value=vaex_model, filename=model_out, compress=3)
+        print('model written to output, time: {}s'.format(
+            round(time.time() - start)))
 
-    df_train.state_write(model_out)
-    # df_train.state_load('./output/scats_model.json')
-
-    print('model written to output, finished, time: {}s'.format(
-        round(time.time() - start)))
+    client.shutdown()
+    print('model trained, time: {}s'.format(round(time.time() - start)))
     return
 
 
