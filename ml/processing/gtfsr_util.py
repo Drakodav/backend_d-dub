@@ -1,19 +1,33 @@
-import os
-import zipfile
+from django.contrib.gis.geos import GEOSGeometry
 from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import Parse
-from django.contrib.gis.geos import GEOSGeometry
-import numpy as np
-import pandas as pd
-import psycopg2
-import time
+from joblib import delayed, Parallel
 from datetime import datetime
+import pandas as pd
+import numpy as np
+import itertools
+import psycopg2
+import zipfile
+import time
+import os
 
 dir = os.path.dirname(__file__)
 outdir = os.path.join(dir, 'output')
 gtfs_records_zip = os.path.join(dir, 'data', 'GtfsRRecords.zip')
 gtfs_csv_zip = os.path.join(outdir, 'gtfsr_csv.zip')
 gtfs_final_csv_path = os.path.join(outdir, 'gtfsr.csv')
+# gtfs_csv_zip = os.path.join(outdir, 'gtfsr_csv_test.zip')
+# gtfs_final_csv_path = os.path.join(outdir, 'gtfsr_test.csv')
+
+
+# lets return a iterable that can be chunked
+def chunked_iterable(iterable, size):
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it, size))
+        if not chunk:
+            break
+        yield chunk
 
 
 # Template Function: connect to database and run query.
@@ -47,6 +61,7 @@ def run_query(query: str = ''):
             conn.close()
 
 
+# return a dataframe which includes all the stops id, lat, lon
 def get_stops_df():
     query = """select stop_id, point from stop;"""
     res = run_query(query)
@@ -61,17 +76,59 @@ def get_stops_df():
     return pd.DataFrame(stop_data, columns=['stop_id', 'lon', 'lat'])
 
 
+# splits from the main processing in order to allow multiple threads and cores
+# for performance reasons
+def multi_compute(i, data, trip_id_list, stop_df):
+    feed = gtfs_realtime_pb2.FeedMessage()
+    entity_data = []
+
+    try:
+        Parse(data, feed)
+    except:
+        print('{}.json is a bad file, continue'.format(i))
+        return
+
+    # get feed timestamp and iterate through all the entities
+    timestamp = datetime.fromtimestamp(feed.header.timestamp)
+    for entity in feed.entity:
+        if entity.HasField('trip_update'):
+            trip_id = entity.trip_update.trip.trip_id
+
+            # if the trip id exists in our database when can then continue processing
+            if trip_id in trip_id_list:
+                trip = entity.trip_update.trip
+                stop_time_update = entity.trip_update.stop_time_update
+
+                # for every stop_time_update we append add the fields needed
+                for s in stop_time_update:
+                    arr = s.arrival.delay if s.HasField(
+                        'arrival') else 0
+                    entity_data.append(
+                        [trip_id, trip.start_date, trip.start_time, s.stop_sequence, s.departure.delay, s.stop_id, arr, timestamp])
+
+    # only if we have an existing trip in the feed we can produce a csv file
+    if len(entity_data) > 0:
+        # create the entity
+        entity_df = pd.DataFrame(entity_data, columns=[
+            'trip_id', 'start_date', 'start_time', 'stop_sequence', 'departure', 'stop_id', 'arrival', 'timestamp'])
+
+        # merge the entity stop_id data with the stop lat lon from database
+        df = pd.merge(entity_df, stop_df, on=['stop_id'])
+        del df['stop_id']  # delete extra stop_id field
+
+        return df.to_csv(header=False, index=False)
+
+
 # here we split the data into smaller chunks by getting rid
 # of what we dont need, this is done by only including the trips where
 # we have a match in our database and disregarding the rest
-def process_gtfsr_to_csv():
+def process_gtfsr_to_csv(chunk_size=10000):
     start = time.time()
+    stop_df = get_stops_df()
 
     query = """select trip_id from trip;"""
     trip_id_list = [id[0].replace('-d12-', '-b12-', 1)
                     for id in run_query(query)]
-
-    stop_df = get_stops_df()
 
     # write to a new records file which we can then use to process data faster
     with zipfile.ZipFile(gtfs_csv_zip, 'w') as zf:
@@ -81,55 +138,27 @@ def process_gtfsr_to_csv():
             dirs = zip.namelist()
             dirs_len = len(dirs)
 
-            for i in range(len(dirs)):
-                feed = gtfs_realtime_pb2.FeedMessage()
-                entity_data = []
-
-                try:
-                    realtime_data = zip.read(dirs[i])
-                    Parse(realtime_data, feed)
-                except:
-                    print('{}.json is a bad file, continue'.format(i))
-                    continue
-
-                # get feed timestamp and iterate through all the entities
-                timestamp = datetime.fromtimestamp(feed.header.timestamp)
-                for entity in feed.entity:
-                    if entity.HasField('trip_update'):
-                        trip_id = entity.trip_update.trip.trip_id
-
-                        # if the trip id exists in our database when can then continue processing
-                        if trip_id in trip_id_list:
-                            trip = entity.trip_update.trip
-                            stop_time_update = entity.trip_update.stop_time_update
-
-                            # for every stop_time_update we append add the fields needed
-                            for s in stop_time_update:
-                                arr = s.arrival.delay if s.HasField(
-                                    'arrival') else 0
-                                entity_data.append(
-                                    [trip.trip_id, trip.start_date, trip.start_time, s.stop_sequence, s.departure.delay, s.stop_id, arr, timestamp])
-
+            curr_i = 0
+            for c in chunked_iterable(dirs, size=chunk_size):
                 # friendly printing to update user
-                if i % 100 == 0:
-                    print('{}/{}'.format(i, dirs_len),
-                          'time: {}s'.format(round(time.time() - start)))
+                print('{}/{}'.format(curr_i, dirs_len),
+                      'time: {}s'.format(round(time.time() - start)))
 
-                # only if we have an existing trip in the feed we can produce a csv file
-                if len(entity_data) > 0:
-                    # create the entity
-                    entity_df = pd.DataFrame(entity_data, columns=[
-                                             'trip_id', 'start_date', 'start_time', 'stop_sequence', 'departure', 'stop_id', 'arrival', 'timestamp'])
+                delayed_func = [delayed(multi_compute)(curr_i+i, zip.read(dir), trip_id_list, stop_df)
+                                for i, dir in enumerate(c)]
+                parallel_pool = Parallel(n_jobs=8)
 
-                    # merge the entity stop_id data with the stop lat lon from database
-                    df = pd.merge(entity_df, stop_df, on=['stop_id'])
-                    del df['stop_id']  # delete extra stop_id field
+                res = parallel_pool(delayed_func)
 
-                    # write csv to zip
-                    zf.writestr("{}.csv".format(i), df.to_csv(header=False, index=False),
-                                compress_type=zipfile.ZIP_DEFLATED)
+                # write csv to zip
+                for i, r in enumerate(res):
+                    if not r == None:
+                        zf.writestr("{}.csv".format(curr_i+i), r,
+                                    compress_type=zipfile.ZIP_DEFLATED)
 
-    print('finished processing')
+                curr_i += chunk_size
+
+        print('finished processing')
     return
 
 
@@ -156,6 +185,7 @@ def combine_csv():
 if __name__ == "__main__":
     if not os.path.exists(outdir):
         os.mkdir(outdir)
+
     # execute only if run as a script
     process_gtfsr_to_csv()
     combine_csv()
