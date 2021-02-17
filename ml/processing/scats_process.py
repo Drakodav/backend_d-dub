@@ -1,5 +1,4 @@
 import os
-import numpy as np
 import pandas as pd
 from datetime import datetime
 import time
@@ -56,9 +55,6 @@ def process_scats_data():
     del dataset['Region_y']
     del dataset['Detector']
 
-    # convert to radians for better performance
-    dataset["Lat"] = np.radians(dataset["Lat"])
-    dataset["Long"] = np.radians(dataset["Long"])
     dataset = dataset[(dataset['Lat'] != 0.0) | (dataset['Long'] != 0)]
 
     dataset = dataset.dropna()  # delete any null values, I dont care at this point

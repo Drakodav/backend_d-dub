@@ -4,7 +4,6 @@ from google.protobuf.json_format import Parse
 from joblib import delayed, Parallel
 from datetime import datetime
 import pandas as pd
-import numpy as np
 import itertools
 import psycopg2
 import zipfile
@@ -69,7 +68,7 @@ def get_stops_df():
     stop_data = []
     for s in res:
         id, coords = s[0], GEOSGeometry(s[1]).coords
-        lon, lat = np.radians(coords[1]), np.radians(coords[0])
+        lon, lat = coords[1], coords[0]
 
         stop_data.append([id, lon, lat])
 
@@ -122,7 +121,7 @@ def multi_compute(i, data, trip_id_list, stop_df):
 # here we split the data into smaller chunks by getting rid
 # of what we dont need, this is done by only including the trips where
 # we have a match in our database and disregarding the rest
-def process_gtfsr_to_csv(chunk_size=10000):
+def process_gtfsr_to_csv(chunk_size=1000):
     start = time.time()
     stop_df = get_stops_df()
 

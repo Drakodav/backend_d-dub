@@ -1,7 +1,7 @@
-from dask.distributed import Client
 import joblib
 from sklearn.ensemble import RandomForestRegressor
 from vaex.ml.sklearn import Predictor
+from joblib import parallel_backend
 import vaex.ml
 import vaex
 import time
@@ -16,9 +16,6 @@ model_out = os.path.join(outdir, 'scats_model.json')
 # we create the scats model which can be used to predict unkown avg_volumes of traffic for a
 # lat: radians, lon: radians, dayOfWeek: int, hourOfDay: int
 def create_scats_ml_model():
-
-    client = Client(n_workers=2, threads_per_worker=4,
-                    processes=False, memory_limit='4GB')
 
     start = time.time()
     print('starting scats ml modeling')
@@ -63,18 +60,16 @@ def create_scats_ml_model():
     )
 
     # here we fit and train the model
-    with joblib.parallel_backend('dask'):
+    with parallel_backend('threading', n_jobs=8):
         vaex_model.fit(df=df_train)
         print('\n\nmodel created, time: {}s'.format(round(time.time() - start)))
 
-    client.restart()
-
-    with joblib.parallel_backend('dask'):
+    with parallel_backend('threading', n_jobs=8):
         joblib.dump(value=vaex_model, filename=model_out, compress=3)
         print('model written to output, time: {}s'.format(
             round(time.time() - start)))
 
-    client.shutdown()
+    # client.shutdown()
     print('model trained, time: {}s'.format(round(time.time() - start)))
     return
 
