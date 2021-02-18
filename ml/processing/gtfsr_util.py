@@ -91,7 +91,8 @@ def multi_compute(i, data, trip_id_list, stop_df):
     timestamp = datetime.fromtimestamp(feed.header.timestamp)
     for entity in feed.entity:
         if entity.HasField('trip_update'):
-            trip_id = entity.trip_update.trip.trip_id
+            trip_id = (entity.trip_update.trip.trip_id).replace(
+                '-ga2-', '-gad-', 1)
 
             # if the trip id exists in our database when can then continue processing
             if trip_id in trip_id_list:
@@ -113,7 +114,6 @@ def multi_compute(i, data, trip_id_list, stop_df):
 
         # merge the entity stop_id data with the stop lat lon from database
         df = pd.merge(entity_df, stop_df, on=['stop_id'])
-        del df['stop_id']  # delete extra stop_id field
 
         return df.to_csv(header=False, index=False)
 
@@ -165,7 +165,7 @@ def process_gtfsr_to_csv(chunk_size=1000):
 def combine_csv():
     start = time.time()
     columns = ['trip_id', 'start_date', 'start_time',
-               'stop_sequence', 'departure', 'arrival', 'timestamp', 'lon', 'lat']
+               'stop_sequence', 'departure', 'arrival', 'timestamp', 'stop_id', 'lon', 'lat']
 
     # read from the gtfs records
     with zipfile.ZipFile(gtfs_csv_zip, 'r') as zip:
