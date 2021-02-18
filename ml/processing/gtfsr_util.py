@@ -19,6 +19,19 @@ gtfs_final_csv_path = os.path.join(outdir, "gtfsr.csv")
 # gtfs_csv_zip = os.path.join(outdir, 'gtfsr_csv_test.zip')
 # gtfs_final_csv_path = os.path.join(outdir, 'gtfsr_test.csv')
 
+gtfsr_cols = [
+    "trip_id",
+    "start_date",
+    "start_time",
+    "stop_sequence",
+    "departure",
+    "arrival",
+    "timestamp",
+    "stop_id",
+    "lon",
+    "lat",
+]
+
 
 # lets return a iterable that can be chunked
 def chunked_iterable(iterable, size):
@@ -70,6 +83,9 @@ def get_stops_df():
     return pd.DataFrame(stop_data, columns=["stop_id", "lon", "lat"])
 
 
+# realtime trip_id can be quite unstable,
+# this functions attempts to alleviate it by searching and replacing
+# observed anomalies.
 def find_trip_regex(trip_list, trip_id):
     if not type(trip_id) == str:
         return None
@@ -144,94 +160,97 @@ def multi_compute(i, data, trip_id_list, stop_df):
         # create the entity
         entity_df = pd.DataFrame(
             entity_data,
-            columns=[
-                "trip_id",
-                "start_date",
-                "start_time",
-                "stop_sequence",
-                "departure",
-                "arrival",
-                "timestamp",
-                "stop_id",
-            ],
+            columns=gtfsr_cols[:8],
         )
 
         # merge the entity stop_id data with the stop lat lon from database
         df = pd.merge(entity_df, stop_df, on=["stop_id"])
 
-        return df.to_csv(header=False, index=False)
+        return df
 
 
 # here we split the data into smaller chunks by getting rid
 # of what we dont need, this is done by only including the trips where
 # we have a match in our database and disregarding the rest
-def process_gtfsr_to_csv(chunk_size=1000):
+def process_gtfsr_to_csv(chunk_size=20):
     start = time.time()
     stop_df = get_stops_df()
 
     query = """select trip_id from trip;"""
     trip_id_list = [id[0] for id in run_query(query)]
 
-    # write to a new records file which we can then use to process data faster
-    with zipfile.ZipFile(gtfs_csv_zip, "w") as zf:
+    # create empty zipfile
+    zipfile.ZipFile(gtfs_csv_zip, "w").close()
 
-        # read from the gtfs records
-        with zipfile.ZipFile(gtfs_records_zip, "r") as zip:
-            dirs = zip.namelist()
-            dirs_len = len(dirs)
+    # read from the gtfs records
+    with zipfile.ZipFile(gtfs_records_zip, "r") as zip:
+        dirs = zip.namelist()
+        dirs_len = len(dirs)
 
-            curr_i = 0
-            for c in chunked_iterable(dirs, size=chunk_size):
-                # friendly printing to update user
-                print("{}/{}".format(curr_i, dirs_len), "time: {}s".format(round(time.time() - start)))
+        curr_i = 0
+        for c in chunked_iterable(dirs, size=chunk_size):
 
-                delayed_func = [
-                    delayed(multi_compute)(curr_i + i, zip.read(dir), trip_id_list, stop_df) for i, dir in enumerate(c)
-                ]
-                parallel_pool = Parallel(n_jobs=8)
+            delayed_func = [
+                delayed(multi_compute)(curr_i + i, zip.read(dir), trip_id_list, stop_df) for i, dir in enumerate(c)
+            ]
+            parallel_pool = Parallel(n_jobs=8)
 
-                res = parallel_pool(delayed_func)
+            res = parallel_pool(delayed_func)
 
-                # write csv to zip
-                for i, r in enumerate(res):
-                    if not r == None:
-                        zf.writestr("{}.csv".format(curr_i + i), r, compress_type=zipfile.ZIP_DEFLATED)
+            # create df to store chunks
+            gtfsr_df = pd.DataFrame()
+            gtfsr_df = gtfsr_df.fillna(0)
+            for r in res:
+                if not type(r) == None:
+                    gtfsr_df = pd.concat([gtfsr_df, r])
 
-                curr_i += chunk_size
+            curr_i += chunk_size
 
-        print("finished processing")
+            # here we drop any duplicates
+            if len(gtfsr_df) > 0:
+                gtfsr_df.columns = gtfsr_cols
+                gtfsr_df = gtfsr_df.sort_values(["arrival", "departure"], ascending=[True, True]).drop_duplicates(
+                    subset=gtfsr_cols[:6], keep="last"
+                )
+
+                # append csv to zip
+                with zipfile.ZipFile(gtfs_csv_zip, "a") as zf:
+                    zf.writestr(
+                        "{}.csv".format(curr_i),
+                        gtfsr_df.to_csv(header=False, index=False),
+                        compress_type=zipfile.ZIP_DEFLATED,
+                    )
+
+            # friendly printing to update user
+            print("{}/{}".format(curr_i, dirs_len), "time: {}s".format(round(time.time() - start)))
+            return
+
+    print("finished processing")
     return
 
 
 # here we combine all the zips from the csv into a dataframe and export to one csv file
 def combine_csv():
     start = time.time()
-    columns = [
-        "trip_id",
-        "start_date",
-        "start_time",
-        "stop_sequence",
-        "departure",
-        "arrival",
-        "timestamp",
-        "stop_id",
-        "lon",
-        "lat",
-    ]
 
     # read from the gtfs records
     with zipfile.ZipFile(gtfs_csv_zip, "r") as zip:
         dirs = zip.namelist()
 
         combined_csv = pd.concat([pd.read_csv(zip.open(f), header=None) for f in dirs])
-        combined_csv.columns = columns
+        combined_csv.columns = gtfsr_cols
+        combined_csv = combined_csv.sort_values(["arrival", "departure"], ascending=[True, True]).drop_duplicates(
+            subset=gtfsr_cols[:6], keep="last"
+        )
         combined_csv.to_csv(gtfs_final_csv_path, index=False, header=True)
 
-    print("finished cobining the zip files, time: {}".format(round(time.time() - start)))
+    print("finished combining the zip files, time: {}".format(round(time.time() - start)))
     return
 
 
 if __name__ == "__main__":
+    print("started")
+
     if not os.path.exists(outdir):
         os.mkdir(outdir)
 
@@ -240,7 +259,7 @@ if __name__ == "__main__":
     combine_csv()
 
     # remove the generated csv file at the end
-    os.remove(gtfs_csv_zip)
+    # os.remove(gtfs_csv_zip)
 
-    if os.path.exists(gtfs_final_csv_path + ".hdf5"):
-        os.remove(gtfs_final_csv_path + ".hdf5")
+    # if os.path.exists(gtfs_final_csv_path + ".hdf5"):
+    #     os.remove(gtfs_final_csv_path + ".hdf5")
