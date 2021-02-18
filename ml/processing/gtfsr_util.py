@@ -172,7 +172,7 @@ def multi_compute(i, data, trip_id_list, stop_df):
 # here we split the data into smaller chunks by getting rid
 # of what we dont need, this is done by only including the trips where
 # we have a match in our database and disregarding the rest
-def process_gtfsr_to_csv(chunk_size=20):
+def process_gtfsr_to_csv(chunk_size=200):
     start = time.time()
     stop_df = get_stops_df()
 
@@ -223,7 +223,6 @@ def process_gtfsr_to_csv(chunk_size=20):
 
             # friendly printing to update user
             print("{}/{}".format(curr_i, dirs_len), "time: {}s".format(round(time.time() - start)))
-            return
 
     print("finished processing")
     return
@@ -259,7 +258,7 @@ if __name__ == "__main__":
     combine_csv()
 
     # remove the generated csv file at the end
-    # os.remove(gtfs_csv_zip)
+    os.remove(gtfs_csv_zip)
 
-    # if os.path.exists(gtfs_final_csv_path + ".hdf5"):
-    #     os.remove(gtfs_final_csv_path + ".hdf5")
+    if os.path.exists(gtfs_final_csv_path + ".hdf5"):
+        os.remove(gtfs_final_csv_path + ".hdf5")
