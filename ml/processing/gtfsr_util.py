@@ -104,13 +104,13 @@ def multi_compute(i, data, trip_id_list, stop_df):
                     arr = s.arrival.delay if s.HasField(
                         'arrival') else 0
                     entity_data.append(
-                        [trip_id, trip.start_date, trip.start_time, s.stop_sequence, s.departure.delay, s.stop_id, arr, timestamp])
+                        [trip_id, trip.start_date, trip.start_time, s.stop_sequence, s.departure.delay, arr, timestamp, s.stop_id])
 
     # only if we have an existing trip in the feed we can produce a csv file
     if len(entity_data) > 0:
         # create the entity
         entity_df = pd.DataFrame(entity_data, columns=[
-            'trip_id', 'start_date', 'start_time', 'stop_sequence', 'departure', 'stop_id', 'arrival', 'timestamp'])
+            'trip_id', 'start_date', 'start_time', 'stop_sequence', 'departure', 'arrival', 'timestamp', 'stop_id'])
 
         # merge the entity stop_id data with the stop lat lon from database
         df = pd.merge(entity_df, stop_df, on=['stop_id'])
