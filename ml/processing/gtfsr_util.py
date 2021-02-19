@@ -19,6 +19,7 @@ outdir = os.path.join(dir, "output")
 gtfs_records_zip = os.path.join(dir, "data", "GtfsRRecords.zip")
 gtfs_csv_zip = os.path.join(outdir, "gtfsr_csv.zip")
 gtfs_final_csv_path = os.path.join(outdir, "gtfsr.csv")
+gtfs_processed_csv_path = os.path.join(outdir, "gtfsr_processed.csv")
 
 all_cols = [
     "trip_id",
@@ -259,12 +260,19 @@ def combine_csv():
 
 
 def process_data():
+    start = time.time()
+
     stop_df = get_stops_df()
 
-    df = pd.read_csv(gtfs_final_csv_path, header=True)
+    df = pd.read_csv(gtfs_final_csv_path)
+
     # merge the entity stop_id data with the stop lat lon from database
     df = pd.merge(df, stop_df, on=["stop_id"])
     df.columns = all_cols
+
+    df.to_csv(gtfs_processed_csv_path, index=False, header=True)
+
+    print("finished processing data, {}".format(time.time() - start))
 
 
 def extract_argv():
