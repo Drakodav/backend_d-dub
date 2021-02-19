@@ -1,4 +1,3 @@
-import re
 from django.contrib.gis.geos import GEOSGeometry
 from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import Parse
@@ -7,19 +6,21 @@ from datetime import datetime
 import pandas as pd
 import itertools
 import psycopg2
+import argparse
 import zipfile
 import time
+import vaex
 import os
+import re
+
 
 dir = os.path.dirname(__file__)
 outdir = os.path.join(dir, "output")
 gtfs_records_zip = os.path.join(dir, "data", "GtfsRRecords.zip")
 gtfs_csv_zip = os.path.join(outdir, "gtfsr_csv.zip")
 gtfs_final_csv_path = os.path.join(outdir, "gtfsr.csv")
-# gtfs_csv_zip = os.path.join(outdir, 'gtfsr_csv_test.zip')
-# gtfs_final_csv_path = os.path.join(outdir, 'gtfsr_test.csv')
 
-gtfsr_cols = [
+all_cols = [
     "trip_id",
     "start_date",
     "start_time",
@@ -31,6 +32,8 @@ gtfsr_cols = [
     "lon",
     "lat",
 ]
+
+entity_cols = all_cols[:8]
 
 
 # lets return a iterable that can be chunked
@@ -118,7 +121,7 @@ def find_trip_regex(trip_list, trip_id):
 
 # splits from the main processing in order to allow multiple threads and cores
 # for performance reasons
-def multi_compute(i, data, trip_id_list, stop_df):
+def multi_compute(i, data, trip_id_list):
     feed = gtfs_realtime_pb2.FeedMessage()
     entity_data = []
 
@@ -157,24 +160,18 @@ def multi_compute(i, data, trip_id_list, stop_df):
 
     # only if we have an existing trip in the feed we can produce a csv file
     if len(entity_data) > 0:
-        # create the entity
-        entity_df = pd.DataFrame(
+        # return the dataframe
+        return pd.DataFrame(
             entity_data,
-            columns=gtfsr_cols[:8],
+            columns=entity_cols,
         )
-
-        # merge the entity stop_id data with the stop lat lon from database
-        df = pd.merge(entity_df, stop_df, on=["stop_id"])
-
-        return df
 
 
 # here we split the data into smaller chunks by getting rid
 # of what we dont need, this is done by only including the trips where
 # we have a match in our database and disregarding the rest
-def process_gtfsr_to_csv(chunk_size=200):
+def process_gtfsr_to_csv(chunk_size: int = 200, test: bool = False):
     start = time.time()
-    stop_df = get_stops_df()
 
     query = """select trip_id from trip;"""
     trip_id_list = [id[0] for id in run_query(query)]
@@ -188,10 +185,10 @@ def process_gtfsr_to_csv(chunk_size=200):
         dirs_len = len(dirs)
 
         curr_i = 0
-        for c in chunked_iterable(dirs, size=chunk_size):
+        for chunk in chunked_iterable(dirs, size=chunk_size):
 
             delayed_func = [
-                delayed(multi_compute)(curr_i + i, zip.read(dir), trip_id_list, stop_df) for i, dir in enumerate(c)
+                delayed(multi_compute)(curr_i + i, zip.read(dir), trip_id_list) for i, dir in enumerate(chunk)
             ]
             parallel_pool = Parallel(n_jobs=8)
 
@@ -204,13 +201,13 @@ def process_gtfsr_to_csv(chunk_size=200):
                 if not type(r) == None:
                     gtfsr_df = pd.concat([gtfsr_df, r])
 
-            curr_i += chunk_size
+            curr_i += len(chunk)
 
             # here we drop any duplicates
             if len(gtfsr_df) > 0:
-                gtfsr_df.columns = gtfsr_cols
+                gtfsr_df.columns = entity_cols
                 gtfsr_df = gtfsr_df.sort_values(["arrival", "departure"], ascending=[True, True]).drop_duplicates(
-                    subset=gtfsr_cols[:6], keep="last"
+                    subset=entity_cols[:6], keep="last"
                 )
 
                 # append csv to zip
@@ -224,6 +221,9 @@ def process_gtfsr_to_csv(chunk_size=200):
             # friendly printing to update user
             print("{}/{}".format(curr_i, dirs_len), "time: {}s".format(round(time.time() - start)))
 
+            if test == True:
+                return
+
     print("finished processing")
     return
 
@@ -236,20 +236,39 @@ def combine_csv():
     with zipfile.ZipFile(gtfs_csv_zip, "r") as zip:
         dirs = zip.namelist()
 
+        # merge all the csv's in the zip file
         combined_csv = pd.concat([pd.read_csv(zip.open(f), header=None) for f in dirs])
-        combined_csv.columns = gtfsr_cols
-        combined_csv = combined_csv.sort_values(["arrival", "departure"], ascending=[True, True]).drop_duplicates(
-            subset=gtfsr_cols[:6], keep="last"
-        )
-        combined_csv.to_csv(gtfs_final_csv_path, index=False, header=True)
+        combined_csv.columns = entity_cols
 
-    print("finished combining the zip files, time: {}".format(round(time.time() - start)))
+        # drop any duplicates excluding timestamp
+        combined_csv = combined_csv.sort_values(["arrival", "departure"], ascending=[True, True]).drop_duplicates(
+            subset=entity_cols[:6], keep="last"
+        )
+
+        # convert to csv
+        combined_csv.to_csv(gtfs_final_csv_path, index=False, header=True)
+        print("finished combining the zip files, time: {}".format(round(time.time() - start)))
+
+        if os.path.exists(gtfs_final_csv_path + ".hdf5"):
+            os.remove(gtfs_final_csv_path + ".hdf5")
+
+        if not os.path.exists(gtfs_final_csv_path + ".hdf5"):
+            vaex.from_csv(gtfs_final_csv_path, convert=True, copy_index=False, chunk_size=1000000)
+            print("finished exporting converting to hdf5, time: {}".format(round(time.time() - start)))
     return
 
 
-if __name__ == "__main__":
-    print("started")
+def process_data():
+    stop_df = get_stops_df()
 
+    df = pd.read_csv(gtfs_final_csv_path, header=True)
+    # merge the entity stop_id data with the stop lat lon from database
+    df = pd.merge(df, stop_df, on=["stop_id"])
+    df.columns = all_cols
+
+
+def extract_argv():
+    print("started extraction process")
     if not os.path.exists(outdir):
         os.mkdir(outdir)
 
@@ -257,8 +276,39 @@ if __name__ == "__main__":
     process_gtfsr_to_csv()
     combine_csv()
 
-    # remove the generated csv file at the end
+    # remove the generated zip file at the end
     os.remove(gtfs_csv_zip)
 
-    if os.path.exists(gtfs_final_csv_path + ".hdf5"):
-        os.remove(gtfs_final_csv_path + ".hdf5")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--extract", help="extracts a zip of gtfsr records to a csv", action="store_true")
+    parser.add_argument("--process", help="processes the created csv with the correct data format", action="store_true")
+    parser.add_argument("--model", help="creates a prediction model using processed gtfsr data", action="store_true")
+    parser.add_argument("--all", help="end2end extract process and create model", action="store_true")
+    parser.add_argument("--test", help="export data to a diff file for testing", action="store_true")
+
+    args = parser.parse_args()
+
+    # testing  environment for
+    if args.test and args.extract:
+        gtfs_csv_zip = os.path.join(outdir, "gtfsr_csv_test.zip")
+        gtfs_final_csv_path = os.path.join(outdir, "gtfsr_test.csv")
+
+        process_gtfsr_to_csv(100, True)
+        combine_csv()
+
+    elif args.extract:
+        extract_argv()
+
+    if args.process:
+        process_data()
+
+    if args.model:
+        print("creating model... not really")
+
+    if args.all:
+        extract_argv()
+        process_data()
+        print("model")
