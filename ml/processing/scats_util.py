@@ -12,10 +12,9 @@ import os
 dir = os.path.dirname(__file__)
 outdir = os.path.join(dir, "output")
 
-csv = os.path.join(dir, "output", "processed_scats.csv")
 model_out = os.path.join(outdir, "scats_model.json")
 scatsFilesPath = os.path.join(dir, "data")
-finalScatsPath = os.path.join(outdir, "processed_scats.csv")
+finalScatsPath = os.path.join(outdir, "scats.csv")
 
 
 # here we process the scats data from multiple csv file to one single file
@@ -124,10 +123,10 @@ def create_scats_ml_model():
     print("starting scats ml modeling")
 
     # load existing csv into vaex dataframe
-    if not os.path.exists(csv + ".hdf5"):
-        df = vaex.from_csv(csv, convert=True, copy_index=False, chunk_size=1_000_000)
-        df.export(csv, shuffle=True)
-    df = vaex.open(csv + ".hdf5", shuffle=True)
+    if not os.path.exists(finalScatsPath + ".hdf5"):
+        vaex.from_csv(finalScatsPath, convert=True, copy_index=False, chunk_size=1_000_000)
+
+    df = vaex.open(finalScatsPath + ".hdf5", shuffle=True)
     df = df.sample(frac=1)
 
     # transform the features into more machine learning friendly vars
@@ -140,14 +139,7 @@ def create_scats_ml_model():
     cycl_transform_dow = vaex.ml.CycleTransformer(features=["dow"], n=7)
     df = cycl_transform_dow.fit_transform(df)
 
-    # split into train and test
-    df_train, df_test = df.ml.train_test_split(test_size=0, verbose=False)
-
-    feats = (
-        df_train.get_column_names(regex="pca")
-        + df_train.get_column_names(regex=".*_x")
-        + df_train.get_column_names(regex=".*_y")
-    )
+    feats = df.get_column_names(regex="pca") + df.get_column_names(regex=".*_x") + df.get_column_names(regex=".*_y")
     target = "avg_vol"
 
     print("dataWrangling done, ready to create model, time: {}s".format(round(time.time() - start)))
@@ -158,7 +150,7 @@ def create_scats_ml_model():
 
     # here we fit and train the model
     with parallel_backend("threading", n_jobs=8):
-        vaex_model.fit(df=df_train)
+        vaex_model.fit(df=df)
         print("\n\nmodel created, time: {}s".format(round(time.time() - start)))
 
     with parallel_backend("threading", n_jobs=8):
