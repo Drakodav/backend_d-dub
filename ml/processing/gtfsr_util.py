@@ -34,8 +34,8 @@ all_cols = [
     "arrival",
     "timestamp",
     "stop_id",
-    "lat",
     "lon",
+    "lat",
     "arrival_time",
     "departure_time",
     "shape_dist_traveled",
@@ -86,8 +86,8 @@ def run_query(query: str = ""):
 def get_stops_df(con_callback):
     gdf = gpd.GeoDataFrame.from_postgis("""select stop_id, point as geom from stop;""", con_callback())
 
-    gdf["lat"] = gdf.apply(lambda row: row["geom"].x, axis=1)
     gdf["lon"] = gdf.apply(lambda row: row["geom"].y, axis=1)
+    gdf["lat"] = gdf.apply(lambda row: row["geom"].x, axis=1)
 
     return pd.DataFrame(gdf.drop(columns="geom"))
 
@@ -308,13 +308,8 @@ def add_stop_data(start):
 
     # stop times for each trip dataframe
     stop_time_trip_df = pd.concat(res)
-    df = df.merge(
-        stop_time_trip_df, left_on=["trip_id", "stop_sequence"], right_on=["trip_id", "stop_sequence"], how="left"
-    )
+    df = df.merge(stop_time_trip_df, left_on=["trip_id", "stop_sequence"], right_on=["trip_id", "stop_sequence"])
     print("merged stop times, time: {}".format(round(time.time() - start)))
-
-    df = df.dropna()
-    print("dropped null values, time: {}".format(round(time.time() - start)))
 
     # convert to hdf5
     vaex.from_pandas(df).export_hdf5(gtfsr_processing_temp)
@@ -353,9 +348,12 @@ def predict_traffic_from_gtfsr(start):
         print("made predictions, time: {}".format(round(time.time() - start)))
         print("exporting to csv...")
 
-        vx_df = vx_df.drop(["dow", "hour"])
-
         df[vx_df.column_names + ["p_avg_vol"]].export_csv(gtfs_processed_csv_path)
+
+        if os.path.exists(gtfs_processed_csv_path + ".hdf5"):
+            os.remove()(gtfs_processed_csv_path + ".hdf5")
+        vaex.from_csv(gtfs_processed_csv_path, convert=True)
+
         print("exported to csv, time: {}".format(round(time.time() - start)))
 
     return
