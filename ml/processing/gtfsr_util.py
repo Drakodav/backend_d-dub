@@ -1,7 +1,7 @@
 from joblib import delayed, Parallel, load, parallel_backend
 from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import Parse
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import geopandas as gpd
 import itertools
@@ -23,6 +23,7 @@ gtfs_final_csv_path = os.path.join(outdir, "gtfsr.csv")
 gtfs_processed_csv_path = os.path.join(outdir, "gtfsr_processed.csv")
 scats = os.path.join(dir, "output", "scats_model.json")
 gtfsr_processing_temp = os.path.join(outdir, "processing_temp.hdf5")
+
 
 all_cols = [
     "trip_id",
@@ -93,6 +94,7 @@ def get_stops_df(con_callback):
 
 # get the stop time datat for each trip
 def get_stop_time_df(trip_id, con_callback):
+
     query = """
     select stop_time.arrival_time, stop_time.departure_time, 
         stop_time.stop_sequence, stop_time.shape_dist_traveled
@@ -107,6 +109,8 @@ def get_stop_time_df(trip_id, con_callback):
     ).lstrip()
     df = pd.read_sql_query(query, con_callback())
     df["trip_id"] = trip_id
+    df["arrival_time"] = df["arrival_time"].apply(lambda d: datetime.fromtimestamp(int(d)).strftime("%H:%M:%S"))
+    df["departure_time"] = df["departure_time"].apply(lambda d: datetime.fromtimestamp(int(d)).strftime("%H:%M:%S"))
     return df
 
 
@@ -284,7 +288,7 @@ def combine_csv():
 
 # create a df with stop data and export to hdf5
 def add_stop_data(start):
-
+    print("*** adding stop data***")
     # read csv
     df = pd.read_csv(gtfs_final_csv_path)
 
@@ -309,17 +313,27 @@ def add_stop_data(start):
     )
     print("merged stop times, time: {}".format(round(time.time() - start)))
 
+    df = df.dropna()
+    print("dropped null values, time: {}".format(round(time.time() - start)))
+
     # convert to hdf5
     vaex.from_pandas(df).export_hdf5(gtfsr_processing_temp)
 
 
-def predict_traffic_from_gtfsr(_df, start):
-    df = _df
+def predict_traffic_from_gtfsr(start):
+    print("*** scats predictions ***")
 
-    df["dow"] = df["start_date"].apply(lambda t: datetime.strptime(str(t), "%Y%m%d").weekday())
-    df["month"] = df["start_date"].apply(lambda t: datetime.strptime(str(t), "%Y%m%d").month)
-    df["day"] = df["start_date"].apply(lambda t: datetime.strptime(str(t), "%Y%m%d").day)
-    df["hour"] = df["start_time"].apply(lambda t: datetime.strptime(t, "%H:%M:%S").hour)
+    vx_df = vaex.open(gtfsr_processing_temp)
+    df = vx_df
+
+    def apply_dow(start_date, start_time, arrival_time):
+        date = datetime.strptime(str(start_date), "%Y%m%d")
+        if datetime.strptime(arrival_time, "%H:%M:%S") < datetime.strptime(start_time, "%H:%M:%S"):
+            return (date + timedelta(days=1)).weekday()
+        return date.weekday()
+
+    df["hour"] = df["arrival_time"].apply(lambda t: datetime.strptime(t, "%H:%M:%S").hour)
+    df["dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
 
     pca_coord = vaex.ml.PCA(features=["lat", "lon"], n_components=2, prefix="pca")
     df = pca_coord.fit_transform(df)
@@ -330,17 +344,21 @@ def predict_traffic_from_gtfsr(_df, start):
     cycl_transform_dow = vaex.ml.CycleTransformer(features=["dow"], n=7)
     df = cycl_transform_dow.fit_transform(df)
 
-    # load the scats ml model
     with parallel_backend("threading"):
+        # load the scats ml model
         scats_model = load(scats)
-        print("loaded scats model, time: {}".format(round(time.time() - start)))
 
-    # get the predictions from scats data
-    with parallel_backend("threading"):
+        # get the predictions from scats data
         df = scats_model.transform(df)
         print("made predictions, time: {}".format(round(time.time() - start)))
+        print("exporting to csv...")
 
-    return df[_df.column_names + ["p_avg_vol"]]
+        vx_df = vx_df.drop(["dow", "hour"])
+
+        df[vx_df.column_names + ["p_avg_vol"]].export_csv(gtfs_processed_csv_path)
+        print("exported to csv, time: {}".format(round(time.time() - start)))
+
+    return
 
 
 def process_data():
@@ -349,15 +367,9 @@ def process_data():
     if not os.path.exists(gtfsr_processing_temp):
         add_stop_data(start)
 
-    print("*** scats predictions ***")
+    predict_traffic_from_gtfsr(start)
 
-    vx_df = vaex.open(gtfsr_processing_temp)
-    vx_df = predict_traffic_from_gtfsr(vx_df, start)
-
-    # df.columns = all_cols
-    vx_df.to_csv(gtfs_processed_csv_path, index=False, header=True)
-
-    print("finished processing data, {}".format(time.time() - start))
+    print("finished processing data, {}".format(round(time.time() - start)))
 
 
 def extract():
