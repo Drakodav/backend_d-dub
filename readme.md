@@ -76,6 +76,12 @@ docker exec -it dynamo_backend bash
 pkill -f uwsgi -9
 ```
 
+docker start all
+
+```
+docker start $(docker ps -a -q)
+```
+
 install ipython kernel for local venv.
 make sure local venv is activated
 
