@@ -1,15 +1,16 @@
-from django.contrib.gis.geos import GEOSGeometry
+from joblib import delayed, Parallel, load, parallel_backend
 from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import Parse
-from joblib import delayed, Parallel
 from datetime import datetime
 import pandas as pd
+import geopandas as gpd
 import itertools
 import psycopg2
 import argparse
 import zipfile
 import time
 import vaex
+import vaex.ml
 import os
 import re
 
@@ -20,6 +21,8 @@ gtfs_records_zip = os.path.join(dir, "data", "GtfsRRecords.zip")
 gtfs_csv_zip = os.path.join(outdir, "gtfsr_csv.zip")
 gtfs_final_csv_path = os.path.join(outdir, "gtfsr.csv")
 gtfs_processed_csv_path = os.path.join(outdir, "gtfsr_processed.csv")
+scats = os.path.join(dir, "output", "scats_model.json")
+gtfsr_processing_temp = os.path.join(outdir, "processing_temp.hdf5")
 
 all_cols = [
     "trip_id",
@@ -30,8 +33,11 @@ all_cols = [
     "arrival",
     "timestamp",
     "stop_id",
-    "lon",
     "lat",
+    "lon",
+    "arrival_time",
+    "departure_time",
+    "shape_dist_traveled",
 ]
 
 entity_cols = all_cols[:8]
@@ -47,13 +53,16 @@ def chunked_iterable(iterable, size):
         yield chunk
 
 
+# connect to the PostgreSQL server
+def get_conn():
+    return psycopg2.connect(host="localhost", port="25432", database="gis", user="docker", password="docker")
+
+
 # Template Function: connect to database and run query.
 def run_query(query: str = ""):
     """ Connect to the PostgreSQL database server """
-    conn = None
     try:
-        # connect to the PostgreSQL server
-        conn = psycopg2.connect(host="localhost", port="25432", database="gis", user="docker", password="docker")
+        conn = get_conn()
 
         # create a cursor
         cur = conn.cursor()
@@ -73,18 +82,32 @@ def run_query(query: str = ""):
 
 
 # return a dataframe which includes all the stops id, lat, lon
-def get_stops_df():
-    query = """select stop_id, point from stop;"""
-    res = run_query(query)
+def get_stops_df(con_callback):
+    gdf = gpd.GeoDataFrame.from_postgis("""select stop_id, point as geom from stop;""", con_callback())
 
-    stop_data = []
-    for s in res:
-        id, coords = s[0], GEOSGeometry(s[1]).coords
-        lon, lat = coords[1], coords[0]
+    gdf["lat"] = gdf.apply(lambda row: row["geom"].x, axis=1)
+    gdf["lon"] = gdf.apply(lambda row: row["geom"].y, axis=1)
 
-        stop_data.append([id, lon, lat])
+    return pd.DataFrame(gdf.drop(columns="geom"))
 
-    return pd.DataFrame(stop_data, columns=["stop_id", "lon", "lat"])
+
+# get the stop time datat for each trip
+def get_stop_time_df(trip_id, con_callback):
+    query = """
+    select stop_time.arrival_time, stop_time.departure_time, 
+        stop_time.stop_sequence, stop_time.shape_dist_traveled
+    from stop_time
+    join trip on trip.id = stop_time.trip_id
+    where trip.trip_id = '{}'
+    group by stop_time.id
+    order by stop_sequence
+    ;
+    """.format(
+        trip_id
+    ).lstrip()
+    df = pd.read_sql_query(query, con_callback())
+    df["trip_id"] = trip_id
+    return df
 
 
 # realtime trip_id can be quite unstable,
@@ -259,23 +282,85 @@ def combine_csv():
     return
 
 
-def process_data():
-    start = time.time()
+# create a df with stop data and export to hdf5
+def add_stop_data(start):
 
-    stop_df = get_stops_df()
-
+    # read csv
     df = pd.read_csv(gtfs_final_csv_path)
+
+    # get a list of all the stops
+    stop_df = get_stops_df(get_conn)
 
     # merge the entity stop_id data with the stop lat lon from database
     df = pd.merge(df, stop_df, on=["stop_id"])
-    df.columns = all_cols
+    print("merged stops, time: {}".format(round(time.time() - start)))
 
-    df.to_csv(gtfs_processed_csv_path, index=False, header=True)
+    # get all the stop_times for each trip in our realtime data
+    trip_list = df["trip_id"].unique()
+    delayed_funcs = [delayed(get_stop_time_df)(t_id, get_conn) for t_id in trip_list]
+
+    parallel_pool = Parallel(n_jobs=8)
+    res = parallel_pool(delayed_funcs)
+
+    # stop times for each trip dataframe
+    stop_time_trip_df = pd.concat(res)
+    df = df.merge(
+        stop_time_trip_df, left_on=["trip_id", "stop_sequence"], right_on=["trip_id", "stop_sequence"], how="left"
+    )
+    print("merged stop times, time: {}".format(round(time.time() - start)))
+
+    # convert to hdf5
+    vaex.from_pandas(df).export_hdf5(gtfsr_processing_temp)
+
+
+def predict_traffic_from_gtfsr(_df, start):
+    df = _df
+
+    df["dow"] = df["start_date"].apply(lambda t: datetime.strptime(str(t), "%Y%m%d").weekday())
+    df["month"] = df["start_date"].apply(lambda t: datetime.strptime(str(t), "%Y%m%d").month)
+    df["day"] = df["start_date"].apply(lambda t: datetime.strptime(str(t), "%Y%m%d").day)
+    df["hour"] = df["start_time"].apply(lambda t: datetime.strptime(t, "%H:%M:%S").hour)
+
+    pca_coord = vaex.ml.PCA(features=["lat", "lon"], n_components=2, prefix="pca")
+    df = pca_coord.fit_transform(df)
+
+    cycl_transform_hour = vaex.ml.CycleTransformer(features=["hour"], n=24)
+    df = cycl_transform_hour.fit_transform(df)
+
+    cycl_transform_dow = vaex.ml.CycleTransformer(features=["dow"], n=7)
+    df = cycl_transform_dow.fit_transform(df)
+
+    # load the scats ml model
+    with parallel_backend("threading"):
+        scats_model = load(scats)
+        print("loaded scats model, time: {}".format(round(time.time() - start)))
+
+    # get the predictions from scats data
+    with parallel_backend("threading"):
+        df = scats_model.transform(df)
+        print("made predictions, time: {}".format(round(time.time() - start)))
+
+    return df[_df.column_names + ["p_avg_vol"]]
+
+
+def process_data():
+    start = time.time()
+
+    if not os.path.exists(gtfsr_processing_temp):
+        add_stop_data(start)
+
+    print("*** scats predictions ***")
+
+    vx_df = vaex.open(gtfsr_processing_temp)
+    vx_df = predict_traffic_from_gtfsr(vx_df, start)
+
+    # df.columns = all_cols
+    vx_df.to_csv(gtfs_processed_csv_path, index=False, header=True)
 
     print("finished processing data, {}".format(time.time() - start))
 
 
-def extract_argv():
+def extract():
     print("started extraction process")
     if not os.path.exists(outdir):
         os.mkdir(outdir)
@@ -308,7 +393,7 @@ if __name__ == "__main__":
         combine_csv()
 
     elif args.extract:
-        extract_argv()
+        extract()
 
     if args.process:
         process_data()
@@ -317,6 +402,6 @@ if __name__ == "__main__":
         print("creating model... not really")
 
     if args.all:
-        extract_argv()
+        extract()
         process_data()
         print("model")
