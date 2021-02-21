@@ -234,9 +234,6 @@ def process_gtfsr_to_csv(chunk_size: int = 200, test: bool = False):
             # here we drop any duplicates
             if len(gtfsr_df) > 0:
                 gtfsr_df.columns = entity_cols
-                gtfsr_df = gtfsr_df.sort_values(["arrival", "departure"], ascending=[True, True]).drop_duplicates(
-                    subset=entity_cols[:6], keep="last"
-                )
 
                 # append csv to zip
                 with zipfile.ZipFile(gtfs_csv_zip, "a") as zf:
@@ -267,11 +264,6 @@ def combine_csv():
         # merge all the csv's in the zip file
         combined_csv = pd.concat([pd.read_csv(zip.open(f), header=None) for f in dirs])
         combined_csv.columns = entity_cols
-
-        # drop any duplicates excluding timestamp
-        combined_csv = combined_csv.sort_values(["arrival", "departure"], ascending=[True, True]).drop_duplicates(
-            subset=entity_cols[:6], keep="last"
-        )
 
         # convert to csv
         combined_csv.to_csv(gtfs_final_csv_path, index=False, header=True)
