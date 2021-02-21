@@ -266,13 +266,8 @@ def get_stop_time_df(trip_id, conn):
     """.format(
         trip_id
     ).lstrip()
+
     gdf = gpd.read_postgis(query, conn())
-
-    # set the trip id, no need to fetch from db
-    gdf["trip_id"] = trip_id
-
-    # set the start time to the first instance of arrival time
-    gdf["start_time"] = gdf["arrival_time"].iloc[0]
 
     # convert the times to human readable format
     gdf["arrival_time"] = gdf["arrival_time"].apply(lambda d: datetime.fromtimestamp(int(d)).strftime("%H:%M:%S"))
@@ -288,8 +283,9 @@ def get_stop_time_df(trip_id, conn):
     # calculate the point distance between each stop and shape dist between them
     gdf["shape_dist_between"] = gdf.shape_dist_traveled - gdf.shape_dist_traveled.shift()
 
-    # first will always be NA, set to 0
-    gdf = gdf.fillna(0)
+    gdf["trip_id"] = trip_id  # set the trip id, no need to fetch from db
+    gdf["start_time"] = gdf["arrival_time"].iloc[0]  # set the start time to the first instance of arrival time
+    gdf = gdf.fillna(0)  # first will always be NA, set to 0
 
     # return a new pandas df dropping the geom column
     return pd.DataFrame(gdf.drop(columns="geom"))
@@ -298,8 +294,8 @@ def get_stop_time_df(trip_id, conn):
 # create a df with stop data and export to hdf5
 def add_stop_data(start):
     print("*** adding stop data***")
-    # read csv
-    df = pd.read_csv(gtfs_final_csv_path)
+
+    df = pd.read_csv(gtfs_final_csv_path)  # read csv
 
     # dropping duplicates
     df = df.drop_duplicates(subset=entity_cols[:5])
@@ -323,8 +319,7 @@ def add_stop_data(start):
     )
     print("merge stop_time & gtfsr data, time: {}".format(round(time.time() - start)))
 
-    # convert to hdf5
-    vaex.from_pandas(df).export_hdf5(gtfsr_processing_temp)
+    vaex.from_pandas(df).export_hdf5(gtfsr_processing_temp)  # convert to hdf5
 
 
 def predict_traffic_from_gtfsr(start):
