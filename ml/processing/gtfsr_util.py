@@ -2,6 +2,7 @@ from joblib import delayed, Parallel, load, parallel_backend
 from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import Parse
 from datetime import datetime, timedelta
+import numpy as np
 import pandas as pd
 import geopandas as gpd
 import itertools
@@ -25,7 +26,7 @@ scats = os.path.join(dir, "output", "scats_model.json")
 gtfsr_processing_temp = os.path.join(outdir, "processing_temp.hdf5")
 
 
-all_cols = [
+entity_cols = [
     "trip_id",
     "start_date",
     "start_time",
@@ -34,14 +35,7 @@ all_cols = [
     "arrival",
     "timestamp",
     "stop_id",
-    "lon",
-    "lat",
-    "arrival_time",
-    "departure_time",
-    "shape_dist_traveled",
 ]
-
-entity_cols = all_cols[:8]
 
 
 # lets return a iterable that can be chunked
@@ -80,38 +74,6 @@ def run_query(query: str = ""):
     finally:
         if conn is not None:
             conn.close()
-
-
-# return a dataframe which includes all the stops id, lat, lon
-def get_stops_df(con_callback):
-    gdf = gpd.GeoDataFrame.from_postgis("""select stop_id, point as geom from stop;""", con_callback())
-
-    gdf["lon"] = gdf.apply(lambda row: row["geom"].y, axis=1)
-    gdf["lat"] = gdf.apply(lambda row: row["geom"].x, axis=1)
-
-    return pd.DataFrame(gdf.drop(columns="geom"))
-
-
-# get the stop time datat for each trip
-def get_stop_time_df(trip_id, con_callback):
-
-    query = """
-    select stop_time.arrival_time, stop_time.departure_time, 
-        stop_time.stop_sequence, stop_time.shape_dist_traveled
-    from stop_time
-    join trip on trip.id = stop_time.trip_id
-    where trip.trip_id = '{}'
-    group by stop_time.id
-    order by stop_sequence
-    ;
-    """.format(
-        trip_id
-    ).lstrip()
-    df = pd.read_sql_query(query, con_callback())
-    df["trip_id"] = trip_id
-    df["arrival_time"] = df["arrival_time"].apply(lambda d: datetime.fromtimestamp(int(d)).strftime("%H:%M:%S"))
-    df["departure_time"] = df["departure_time"].apply(lambda d: datetime.fromtimestamp(int(d)).strftime("%H:%M:%S"))
-    return df
 
 
 # realtime trip_id can be quite unstable,
@@ -231,7 +193,7 @@ def process_gtfsr_to_csv(chunk_size: int = 200, test: bool = False):
 
             curr_i += len(chunk)
 
-            # here we drop any duplicates
+            # write the data to csv
             if len(gtfsr_df) > 0:
                 gtfsr_df.columns = entity_cols
 
@@ -278,18 +240,70 @@ def combine_csv():
     return
 
 
+# calculate the direction angle from point 1 to point 2
+# in our case we use first stop and last stop lon lats
+def direction_angle(theta_1, phi_1, theta_2, phi_2):
+    dtheta = theta_2 - theta_1
+    dphi = phi_2 - phi_1
+    radians = np.arctan2(dtheta, dphi)
+    return np.rad2deg(radians)
+
+
+# get the stop time, stop and trip data for each trip
+def get_stop_time_df(trip_id, conn):
+    query = """
+    select 
+        stop_time.arrival_time, stop_time.departure_time, 
+        stop_time.stop_sequence, stop_time.shape_dist_traveled, 
+        stop.stop_id, stop.point as geom
+    from stop_time
+    join stop on stop.id = stop_time.stop_id
+    join trip on trip.id = stop_time.trip_id
+    where trip.trip_id = '{}'
+    group by stop_time.id, stop.id
+    order by stop_sequence
+    ;
+    """.format(
+        trip_id
+    ).lstrip()
+    gdf = gpd.read_postgis(query, conn())
+
+    # set the trip id, no need to fetch from db
+    gdf["trip_id"] = trip_id
+
+    # set the start time to the first instance of arrival time
+    gdf["start_time"] = gdf["arrival_time"].iloc[0]
+
+    # convert the times to human readable format
+    gdf["arrival_time"] = gdf["arrival_time"].apply(lambda d: datetime.fromtimestamp(int(d)).strftime("%H:%M:%S"))
+    gdf["departure_time"] = gdf["departure_time"].apply(lambda d: datetime.fromtimestamp(int(d)).strftime("%H:%M:%S"))
+
+    # convert the geom to lat lon
+    gdf["lat"] = gdf.apply(lambda row: row["geom"].y, axis=1)
+    gdf["lon"] = gdf.apply(lambda row: row["geom"].x, axis=1)
+
+    # find the direction angle of the trip
+    gdf["direction_angle"] = direction_angle(gdf.iloc[0].lon, gdf.iloc[0].lat, gdf.iloc[-1].lon, gdf.iloc[-1].lat)
+
+    # calculate the point distance between each stop and shape dist between them
+    gdf["shape_dist_between"] = gdf.shape_dist_traveled - gdf.shape_dist_traveled.shift()
+
+    # first will always be NA, set to 0
+    gdf = gdf.fillna(0)
+
+    # return a new pandas df dropping the geom column
+    return pd.DataFrame(gdf.drop(columns="geom"))
+
+
 # create a df with stop data and export to hdf5
 def add_stop_data(start):
     print("*** adding stop data***")
     # read csv
     df = pd.read_csv(gtfs_final_csv_path)
 
-    # get a list of all the stops
-    stop_df = get_stops_df(get_conn)
-
-    # merge the entity stop_id data with the stop lat lon from database
-    df = pd.merge(df, stop_df, on=["stop_id"])
-    print("merged stops, time: {}".format(round(time.time() - start)))
+    # dropping duplicates
+    df = df.drop_duplicates(subset=entity_cols[:5])
+    print("dropped duplicates, time: {}".format(round(time.time() - start)))
 
     # get all the stop_times for each trip in our realtime data
     trip_list = df["trip_id"].unique()
@@ -300,8 +314,14 @@ def add_stop_data(start):
 
     # stop times for each trip dataframe
     stop_time_trip_df = pd.concat(res)
-    df = df.merge(stop_time_trip_df, left_on=["trip_id", "stop_sequence"], right_on=["trip_id", "stop_sequence"])
-    print("merged stop times, time: {}".format(round(time.time() - start)))
+    print("concat stop_time data, time: {}".format(round(time.time() - start)))
+
+    df = df.merge(
+        stop_time_trip_df,
+        left_on=["trip_id", "stop_sequence", "stop_id", "start_time"],
+        right_on=["trip_id", "stop_sequence", "stop_id", "start_time"],
+    )
+    print("merge stop_time & gtfsr data, time: {}".format(round(time.time() - start)))
 
     # convert to hdf5
     vaex.from_pandas(df).export_hdf5(gtfsr_processing_temp)
