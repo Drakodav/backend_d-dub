@@ -122,7 +122,7 @@ def multi_compute(i, data, trip_id_list):
         return
 
     # get feed timestamp and iterate through all the entities
-    timestamp = datetime.fromtimestamp(feed.header.timestamp)
+    timestamp = datetime.utcfromtimestamp(feed.header.timestamp)
     for entity in feed.entity:
         if entity.HasField("trip_update"):
             trip_id = find_trip_regex(trip_id_list, entity.trip_update.trip.trip_id)
@@ -253,7 +253,7 @@ def direction_angle(theta_1, phi_1, theta_2, phi_2):
 def get_stop_time_df(trip_id, conn):
     query = """
     select 
-        stop_time.arrival_time, stop_time.departure_time, 
+        stop_time.arrival_time, stop_time.departure_time,
         stop_time.stop_sequence, stop_time.shape_dist_traveled, 
         stop.stop_id, stop.point as geom
     from stop_time
@@ -269,9 +269,9 @@ def get_stop_time_df(trip_id, conn):
 
     gdf = gpd.read_postgis(query, conn())
 
-    # convert the times to human readable format
-    gdf["arrival_time"] = gdf["arrival_time"].apply(lambda d: datetime.fromtimestamp(int(d)).strftime("%H:%M:%S"))
-    gdf["departure_time"] = gdf["departure_time"].apply(lambda d: datetime.fromtimestamp(int(d)).strftime("%H:%M:%S"))
+    # convert the times to human readable format, !IMPORTANT! utcfromtimestamp returns the correct version
+    gdf["arrival_time"] = gdf["arrival_time"].apply(lambda d: datetime.utcfromtimestamp(d).strftime("%H:%M:%S"))
+    gdf["departure_time"] = gdf["departure_time"].apply(lambda d: datetime.utcfromtimestamp(d).strftime("%H:%M:%S"))
 
     # convert the geom to lat lon
     gdf["lat"] = gdf.apply(lambda row: row["geom"].y, axis=1)
@@ -358,7 +358,7 @@ def predict_traffic_from_gtfsr(start):
         df[vx_df.column_names + ["p_avg_vol"]].export_csv(gtfs_processed_csv_path)
 
         if os.path.exists(gtfs_processed_csv_path + ".hdf5"):
-            os.remove()(gtfs_processed_csv_path + ".hdf5")
+            os.remove(gtfs_processed_csv_path + ".hdf5")
         vaex.from_csv(gtfs_processed_csv_path, convert=True)
 
         print("exported to csv, time: {}".format(round(time.time() - start)))
