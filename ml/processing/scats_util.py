@@ -153,7 +153,6 @@ def create_scats_ml_model():
         vaex_model.fit(df=df)
         print("\n\nmodel created, time: {}s".format(round(time.time() - start)))
 
-    with parallel_backend("threading", n_jobs=8):
         dump(value=vaex_model, filename=model_out, compress=3)
         print("model written to output, time: {}s".format(round(time.time() - start)))
 
