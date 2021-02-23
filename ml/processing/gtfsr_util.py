@@ -38,6 +38,16 @@ entity_cols = [
 ]
 
 
+# return the time taken until now
+def duration(start):
+    return round(time.time() - start)
+
+
+# parse a string to datetime
+def get_dt(dt, format):
+    return datetime.strptime(str(dt), format)
+
+
 # lets return a iterable that can be chunked
 def chunked_iterable(iterable, size):
     it = iter(iterable)
@@ -46,6 +56,16 @@ def chunked_iterable(iterable, size):
         if not chunk:
             break
         yield chunk
+
+
+# return the dow for arrival time and departure time.
+# since a trip that starts at 11.30pm can  have an arrival time of 00:01am
+# therefore its the next day
+def apply_dow(start_date, start_time, expected_time):
+    date = get_dt(start_date, "%Y%m%d")
+    if get_dt(start_time, "%H:%M:%S") > get_dt(expected_time, "%H:%M:%S"):
+        return (date + timedelta(days=1)).weekday()
+    return date.weekday()
 
 
 # connect to the PostgreSQL server
@@ -109,8 +129,8 @@ def find_trip_regex(trip_list, trip_id):
         return None
 
 
-# splits from the main processing in order to allow multiple threads and cores
-# for performance reasons
+# splits from the main processing of process_gtfsr_to_csv in order to
+# allow multiple threads and cores for performance reasons
 def multi_compute(i, data, trip_id_list):
     feed = gtfs_realtime_pb2.FeedMessage()
     entity_data = []
@@ -206,7 +226,7 @@ def process_gtfsr_to_csv(chunk_size: int = 200, test: bool = False):
                     )
 
             # friendly printing to update user
-            print("{}/{}".format(curr_i, dirs_len), "time: {}s".format(round(time.time() - start)))
+            print("{}/{}".format(curr_i, dirs_len), "time: {}s".format(duration(start)))
 
             if test == True:
                 return
@@ -229,14 +249,14 @@ def combine_csv():
 
         # convert to csv
         combined_csv.to_csv(gtfs_final_csv_path, index=False, header=True)
-        print("finished combining the zip files, time: {}".format(round(time.time() - start)))
+        print("finished combining the zip files, time: {}".format(duration(start)))
 
         if os.path.exists(gtfs_final_csv_path + ".hdf5"):
             os.remove(gtfs_final_csv_path + ".hdf5")
 
         if not os.path.exists(gtfs_final_csv_path + ".hdf5"):
             vaex.from_csv(gtfs_final_csv_path, convert=True, copy_index=False, chunk_size=1000000)
-            print("finished exporting converting to hdf5, time: {}".format(round(time.time() - start)))
+            print("finished exporting converting to hdf5, time: {}".format(duration(start)))
     return
 
 
@@ -255,12 +275,14 @@ def get_stop_time_df(trip_id, conn):
     select 
         stop_time.arrival_time, stop_time.departure_time,
         stop_time.stop_sequence, stop_time.shape_dist_traveled, 
-        stop.stop_id, stop.point as geom
+        stop.stop_id, stop.point as geom,
+        trip.direction, route.route_id
     from stop_time
     join stop on stop.id = stop_time.stop_id
     join trip on trip.id = stop_time.trip_id
+    join route on trip.route_id = route.id
     where trip.trip_id = '{}'
-    group by stop_time.id, stop.id
+    group by stop_time.id, stop.id, trip.id, route.id
     order by stop_sequence
     ;
     """.format(
@@ -299,7 +321,7 @@ def add_stop_data(start):
 
     # dropping duplicates
     df = df.drop_duplicates(subset=entity_cols[:5])
-    print("dropped duplicates, time: {}".format(round(time.time() - start)))
+    print("dropped duplicates, time: {}".format(duration(start)))
 
     # get all the stop_times for each trip in our realtime data
     trip_list = df["trip_id"].unique()
@@ -310,31 +332,24 @@ def add_stop_data(start):
 
     # stop times for each trip dataframe
     stop_time_trip_df = pd.concat(res)
-    print("concat stop_time data, time: {}".format(round(time.time() - start)))
+    print("concat stop_time data, time: {}".format(duration(start)))
 
     df = df.merge(
         stop_time_trip_df,
         left_on=["trip_id", "stop_sequence", "stop_id", "start_time"],
         right_on=["trip_id", "stop_sequence", "stop_id", "start_time"],
     )
-    print("merge stop_time & gtfsr data, time: {}".format(round(time.time() - start)))
+    print("merge stop_time & gtfsr data, time: {}".format(duration(start)))
 
     vaex.from_pandas(df).export_hdf5(gtfsr_processing_temp)  # convert to hdf5
 
 
-def predict_traffic_from_gtfsr(start):
+def predict_traffic_from_scats(start):
     print("*** scats predictions ***")
 
-    vx_df = vaex.open(gtfsr_processing_temp)
-    df = vx_df
+    df = vaex.open(gtfsr_processing_temp)
 
-    def apply_dow(start_date, start_time, arrival_time):
-        date = datetime.strptime(str(start_date), "%Y%m%d")
-        if datetime.strptime(arrival_time, "%H:%M:%S") < datetime.strptime(start_time, "%H:%M:%S"):
-            return (date + timedelta(days=1)).weekday()
-        return date.weekday()
-
-    df["hour"] = df["arrival_time"].apply(lambda t: datetime.strptime(t, "%H:%M:%S").hour)
+    df["hour"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").hour)
     df["dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
 
     pca_coord = vaex.ml.PCA(features=["lat", "lon"], n_components=2, prefix="pca")
@@ -352,16 +367,18 @@ def predict_traffic_from_gtfsr(start):
 
         # get the predictions from scats data
         df = scats_model.transform(df)
-        print("made predictions, time: {}".format(round(time.time() - start)))
+        print("made predictions, time: {}".format(duration(start)))
         print("exporting to csv...")
 
-        df[vx_df.column_names + ["p_avg_vol"]].export_csv(gtfs_processed_csv_path)
+        df[df.get_column_names(virtual=False) + ["p_avg_vol"]].export_csv(gtfs_processed_csv_path)
 
         if os.path.exists(gtfs_processed_csv_path + ".hdf5"):
             os.remove(gtfs_processed_csv_path + ".hdf5")
         vaex.from_csv(gtfs_processed_csv_path, convert=True)
 
-        print("exported to csv, time: {}".format(round(time.time() - start)))
+        os.remove(gtfsr_processing_temp)
+
+        print("exported to csv, time: {}".format(duration(start)))
 
     return
 
@@ -372,9 +389,9 @@ def process_data():
     if not os.path.exists(gtfsr_processing_temp):
         add_stop_data(start)
 
-    predict_traffic_from_gtfsr(start)
+    predict_traffic_from_scats(start)
 
-    print("finished processing data, {}".format(round(time.time() - start)))
+    print("finished processing data, {}".format(duration(start)))
 
 
 def extract():
@@ -416,6 +433,7 @@ if __name__ == "__main__":
         process_data()
 
     if args.model:
+        # train_gtfsr()
         print("creating model... not really")
 
     if args.all:
