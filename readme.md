@@ -80,6 +80,8 @@ docker start all
 
 ```
 docker start $(docker ps -a -q)
+docker exec dynamo_backend service supervisor start
+docker exec dynamo_backend supervisorctl start all
 ```
 
 install ipython kernel for local venv.
