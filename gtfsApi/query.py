@@ -1,4 +1,3 @@
-
 def route_stops_query(trip_id: int):
     return """
 select 
@@ -10,7 +9,9 @@ where trip.id = {}
 group by stop.id, stop_time.stop_sequence
 order by stop_time.stop_sequence
 ;
-""".format(trip_id).lstrip()
+""".format(
+        trip_id
+    ).lstrip()
 
 
 def stop_departures_query(stop_id: int):
@@ -56,7 +57,9 @@ where stop_time.stop_id = {}
 group by trip.id, stop_time.id, route.id
 order by stop_time.departure_time
 ;
-""".format(stop_id).lstrip()
+""".format(
+        stop_id
+    ).lstrip()
 
 
 def trip_from_route_query(route_id: int, direction: int = 0):
@@ -90,4 +93,6 @@ group by trip.id,stop_time.id
 order by stop_time.departure_time
 limit 1
 ;
-""".format(route_id, direction).lstrip()
+""".format(
+        route_id, direction
+    ).lstrip()

@@ -22,7 +22,7 @@ where trip.id in (
     select trips.id 
     from trip as trips, (
         select agency_id, id
-        from  route
+        from route
         where agency_id = {}
         group by agency_id, id
     ) as my_routes
@@ -130,7 +130,9 @@ where transfer.id in (
 	   where stop.id = transfers.to_stop_id
 	) group by transfers.id
 );
-""".format(agency_id, agency_id, agency_id).lstrip()
+""".format(
+        agency_id, agency_id, agency_id
+    ).lstrip()
 
 
 def delete_model_query():
