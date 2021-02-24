@@ -109,10 +109,11 @@ def get_departures_action(self, request):
         desc = cursor.description
         cursorData = cursor.fetchall()
 
-        parsed_data = parse_data(cursorData, desc)["results"]
+        parsed_data = parse_data(cursorData, desc)
         cursor.close
 
-        trip_ids = [r["trip_id"] for r in parsed_data]
+        results = parsed_data["results"]
+        trip_ids = [r["trip_id"] for r in results]
 
         if settings.PRODUCTION:
             realtime_data = GtfsRApi.objects.order_by("id").last().data
@@ -129,7 +130,7 @@ def get_departures_action(self, request):
 
                 if trip_id in trip_ids:
                     idx = trip_ids.index(trip_id)
-                    curr_stop_sequence = parsed_data[idx]["stop_sequence"]
+                    curr_stop_sequence = results[idx]["stop_sequence"]
 
                     departure = 0
                     arrival = 0
@@ -140,7 +141,7 @@ def get_departures_action(self, request):
                             if stop_update.HasField("arrival"):
                                 arrival = stop_update.arrival.delay
 
-                    parsed_data[idx]["time_delta"] = {"arrival": arrival, "departure": departure}
+                    results[idx]["time_delta"] = {"arrival": arrival, "departure": departure}
 
         return Response(parsed_data)
     return Response(message)
