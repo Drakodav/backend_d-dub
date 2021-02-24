@@ -68,7 +68,7 @@ celery -A dynamoDub worker -l INFO
 celery -A dynamoDub beat
 ```
 
-docker container kill uwsgi
+-   docker container kill uwsgi
 
 ```
 sudo ssh -i ../web-mapping_key.pem azureuser@40.121.42.196
@@ -79,7 +79,9 @@ pkill -f uwsgi -9
 docker start all
 
 ```
+sudo service stop nginx
 docker start $(docker ps -a -q)
+docker start nginx_cert
 docker exec dynamo_backend service supervisor start
 docker exec dynamo_backend supervisorctl start all
 ```
