@@ -48,8 +48,8 @@ class QueryViewSet(viewsets.ReadOnlyModelViewSet):
         urlPath = self.request.get_host() + self.request.get_full_path()
         messages = [
             ("", "", "Common queries are provided through the extra actions section"),
-            ("get_routes", "route", "get routes based on todays timetable"),
-            ("get_trips", "route_trip", "get a single trip from a route"),
+            ("get_routes", "routes", "get routes based on todays timetable"),
+            ("get_trips", "route_trips", "get a single trip from a route"),
             ("get_stops", "trip_stops", "get the stops assosciated with a trip"),
             ("get_departures", "stop_departures", "get trips assosciated to a stop"),
         ]

@@ -112,7 +112,7 @@ def get_departures_action(self, request):
         parsed_data = parse_data(cursorData, desc)
         cursor.close
 
-        trip_ids = [r["trip_id"] for r in parsed_data]
+        trip_ids = [r["trip_id"] for r in parsed_data["results"]]
 
         if settings.PRODUCTION:
             realtime_data = GtfsRApi.objects.order_by("id").last().data
@@ -125,7 +125,7 @@ def get_departures_action(self, request):
         for entity in feed.entity:
             if entity.HasField("trip_update"):
                 stop_time_update = entity.trip_update.stop_time_update
-                trip_id = str(entity.trip_update.trip.trip_id).replace("-b12-", "-d12-", 1)
+                trip_id = str(entity.trip_update.trip.trip_id)
 
                 if trip_id in trip_ids:
                     idx = trip_ids.index(trip_id)
