@@ -109,10 +109,10 @@ def get_departures_action(self, request):
         desc = cursor.description
         cursorData = cursor.fetchall()
 
-        parsed_data = parse_data(cursorData, desc)
+        parsed_data = parse_data(cursorData, desc)["results"]
         cursor.close
 
-        trip_ids = [r["trip_id"] for r in parsed_data["results"]]
+        trip_ids = [r["trip_id"] for r in parsed_data]
 
         if settings.PRODUCTION:
             realtime_data = GtfsRApi.objects.order_by("id").last().data
