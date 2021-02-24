@@ -50,7 +50,7 @@ left join route on trip.route_id = route.id
 ) as my_service
 where stop_time.stop_id = {}
  	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time >= current_timestamp(0) - interval '0h 15min'
-	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time <= current_timestamp(0) + interval '2h 15min'
+	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time <= current_timestamp(0) + interval '1h 15min'
 	and my_service.dow = true
 	and trip.service_id = my_service.id 
 	and not service.id in (select service_id from service_date where date = current_date )
