@@ -1,7 +1,7 @@
 from django.db import connection
 from rest_framework.response import Response
 from django.contrib.gis.geos import GEOSGeometry
-from .query import route_stops_query, stop_departures_query, trip_from_route_query
+from .query import correct_route_query, route_stops_query, stop_departures_query, trip_from_route_query
 from gtfsRApi.models import GtfsRApi
 from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import ParseDict
@@ -26,6 +26,33 @@ def get_stops_action(self, request):
 
         cursor = connection.cursor()
         cursor.execute(route_stops_query(trip_id))
+        desc = cursor.description
+        cursorData = cursor.fetchall()
+
+        parsed_data = parse_data(cursorData, desc)
+        cursor.close
+        return Response(parsed_data)
+    return Response(message)
+
+
+def get_route_action(self, request):
+    urlPath = self.request.get_host() + self.request.get_full_path()
+    message = [
+        "short_name attribute needs to be included in order to retrieve the correct data",
+        "e.g. {}?short_name=<string>".format(urlPath),
+    ]
+
+    target = "short_name"
+
+    if target in request.GET:
+        try:
+            get_var = str(request.GET[target])
+        except:
+            message.append("{} attribute must be string".format(target))
+            return Response(message)
+
+        cursor = connection.cursor()
+        cursor.execute(correct_route_query(get_var))
         desc = cursor.description
         cursorData = cursor.fetchall()
 
@@ -137,4 +164,4 @@ def parse_data(data, desc):
                 obj[x] = y
 
         parsed_data.append(obj)
-    return parsed_data
+    return {"count": len(parsed_data), "results": parsed_data}

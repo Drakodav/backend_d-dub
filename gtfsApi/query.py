@@ -96,3 +96,33 @@ limit 1
 """.format(
         route_id, direction
     ).lstrip()
+
+
+def correct_route_query(short_name):
+    return """
+select route.* 
+from route, (
+	select 
+		id,
+		CAST(
+			CASE
+				WHEN extract(dow from current_date)=0 THEN services.sunday
+				WHEN extract(dow from current_date)=1 THEN services.monday
+				WHEN extract(dow from current_date)=2 THEN services.tuesday
+				WHEN extract(dow from current_date)=3 THEN services.wednesday
+				WHEN extract(dow from current_date)=4 THEN services.thursday
+				WHEN extract(dow from current_date)=5 THEN services.friday
+				WHEN extract(dow from current_date)=6 THEN services.saturday
+			END as bool
+		) as dow
+	from service as services
+	group by id, dow
+) as my_service
+where my_service.dow = true
+	and my_service.id in (select service_id from trip where trip.route_id = route.id)
+	and route.short_name ilike '%{}%'
+group by route.id
+;
+""".format(
+        short_name
+    ).lstrip()
