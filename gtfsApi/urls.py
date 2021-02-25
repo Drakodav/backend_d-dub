@@ -3,5 +3,5 @@ from django.urls.conf import include
 from .api import getRouterUrls
 
 urlpatterns = [
-    path('', include(getRouterUrls())),
+    path("", include(getRouterUrls())),
 ]

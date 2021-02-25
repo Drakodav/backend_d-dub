@@ -3,5 +3,5 @@ from django.urls.conf import include
 from .api import RealtimeGTFS
 
 urlpatterns = [
-    path('', RealtimeGTFS.as_view()),
+    path("", RealtimeGTFS.as_view()),
 ]

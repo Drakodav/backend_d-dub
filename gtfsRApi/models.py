@@ -10,7 +10,7 @@ class GtfsRApi(models.Model):
     timestamp = models.DateTimeField(default=timezone.now, db_index=True)
 
     def __str__(self):
-        return 'gtfsRApi {}'.format(self.timestamp)
+        return "gtfsRApi {}".format(self.timestamp)
 
     class Meta:
-        indexes = [HashIndex(fields=['timestamp'])]
+        indexes = [HashIndex(fields=["timestamp"])]

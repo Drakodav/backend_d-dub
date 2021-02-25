@@ -13,18 +13,18 @@ from multigtfs.models import Agency, Feed, Service
 
 
 @shared_task(ignore_result=False, track_started=True)
-def import_gtfs(gtfs_feed='gtfs.zip', name=None):
+def import_gtfs(gtfs_feed="gtfs.zip", name=None):
     # wget -O gtfs.zip https://www.transportforireland.ie/transitData/google_transit_combined.zip
     # place this file in the root of you project
 
-    unset_name = 'Imported at %s' % datetime.now()
+    unset_name = "Imported at %s" % datetime.now()
     name = name or unset_name
 
     # Setup logging
     verbosity = 1
     console = logging.StreamHandler()
-    formatter = logging.Formatter('%(levelname)s - %(message)s')
-    logger_name = 'multigtfs'
+    formatter = logging.Formatter("%(levelname)s - %(message)s")
+    logger_name = "multigtfs"
     if verbosity == 0:
         level = logging.WARNING
     elif verbosity == 1:
@@ -33,9 +33,8 @@ def import_gtfs(gtfs_feed='gtfs.zip', name=None):
         level = logging.DEBUG
     else:
         level = logging.DEBUG
-        logger_name = ''
-        formatter = logging.Formatter(
-            '%(name)s - %(levelname)s - %(message)s')
+        logger_name = ""
+        formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
     console.setLevel(level)
     console.setFormatter(formatter)
     logger = logging.getLogger(logger_name)
@@ -52,24 +51,24 @@ def import_gtfs(gtfs_feed='gtfs.zip', name=None):
     # Set name based on feed
     if feed.name == unset_name:
         try:
-            agency = feed.agency_set.order_by('id')[:1].get()
+            agency = feed.agency_set.order_by("id")[:1].get()
         except Agency.DoesNotExist:
             agency = None
         try:
-            service = feed.service_set.order_by('id')[:1].get()
+            service = feed.service_set.order_by("id")[:1].get()
         except Service.DoesNotExist:
             service = None
 
         if agency:
             name = agency.name
             if service:
-                name += service.start_date.strftime(' starting %Y-%m-%d')
+                name += service.start_date.strftime(" starting %Y-%m-%d")
             else:
-                name += ' i' + unset_name[1:]
+                name += " i" + unset_name[1:]
             feed.name = name
             feed.save()
 
-    return ("Successfully imported Feed %s\n" % (feed))
+    return "Successfully imported Feed %s\n" % (feed)
 
 
 @shared_task(ignore_result=False, track_started=True)
@@ -85,7 +84,7 @@ def delete_model():
         raise e
 
     cursor.close
-    return 'success'
+    return "success"
 
 
 @shared_task(ignore_result=False, track_started=True)
@@ -99,10 +98,10 @@ def delete_agency(id: int, name: str):
                     cursor.execute(delete_agency_query(id))
             else:
                 cursor.close
-                return 'id: {}, does not exist in the database'.format(id)
+                return "id: {}, does not exist in the database".format(id)
     except Exception as e:
         cursor.close
         raise e
 
     cursor.close
-    return 'success deleted {}'.format(name)
+    return "success deleted {}".format(name)

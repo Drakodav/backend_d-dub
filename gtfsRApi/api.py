@@ -7,12 +7,11 @@ from .models import GtfsRApi
 class MySerializer(serializers.ModelSerializer):
     class Meta:
         model = GtfsRApi
-        fields = ['timestamp', 'data']
+        fields = ["timestamp", "data"]
 
 
 class RealtimeGTFS(APIView):
-
     def get(self, request, format=None):
-        record = GtfsRApi.objects.order_by('id').last()
+        record = GtfsRApi.objects.order_by("id").last()
         serializer = MySerializer(record)
         return Response(serializer.data)

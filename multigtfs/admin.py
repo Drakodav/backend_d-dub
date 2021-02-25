@@ -23,16 +23,32 @@ from django.http import HttpResponseRedirect
 
 from multigtfs.app_settings import MULTIGTFS_OSMADMIN
 from multigtfs.models import (
-    Agency, Block, Fare, FareRule, Feed, FeedInfo, Frequency, Route, Service,
-    ServiceDate, Shape, ShapePoint, Stop, StopTime, Transfer, Trip, Zone)
+    Agency,
+    Block,
+    Fare,
+    FareRule,
+    Feed,
+    FeedInfo,
+    Frequency,
+    Route,
+    Service,
+    ServiceDate,
+    Shape,
+    ShapePoint,
+    Stop,
+    StopTime,
+    Transfer,
+    Trip,
+    Zone,
+)
 
 geo_admin = admin.OSMGeoAdmin if MULTIGTFS_OSMADMIN else admin.GeoModelAdmin
 
 
 class AgencyAdmin(AdminConfirmMixin, admin.ModelAdmin):
-    list_display = ['name']
-    raw_id_fields = ('feed', )
-    actions = ['delete_model_agency']
+    list_display = ["name"]
+    raw_id_fields = ("feed",)
+    actions = ["delete_model_agency"]
 
     # used for confirmation message
     confirm_change = True
@@ -41,18 +57,17 @@ class AgencyAdmin(AdminConfirmMixin, admin.ModelAdmin):
     @confirm_action
     def delete_model_agency(self, request, queryset):
         [delete_agency.delay(q.id, q.name) for q in queryset]
-        self.message_user(
-            request, 'Deleting agency in progress, task may take a while')
-        new_path = '/api/admin/django_celery_results/taskresult/?task_name=multigtfs.tasks.delete_agency'
+        self.message_user(request, "Deleting agency in progress, task may take a while")
+        new_path = "/api/admin/django_celery_results/taskresult/?task_name=multigtfs.tasks.delete_agency"
         return HttpResponseRedirect(new_path)
 
     delete_model_agency.short_description = "Delete Model by Agency"
-    delete_model_agency.allowed_permissions = ('change',)
+    delete_model_agency.allowed_permissions = ("change",)
 
 
 class FeedAdmin(AdminConfirmMixin, admin.ModelAdmin):
-    list_display = ['name']
-    actions = ['delete_model']
+    list_display = ["name"]
+    actions = ["delete_model"]
 
     # used for confirmation message
     confirm_change = True
@@ -64,73 +79,72 @@ class FeedAdmin(AdminConfirmMixin, admin.ModelAdmin):
             raise PermissionDenied
 
         delete_model.delay()
-        self.message_user(
-            request, 'Deleting entire model in progress, task may take a while !No Messing')
-        new_path = '/api/admin/django_celery_results/taskresult/?task_name=gtfsApi.tasks.deleteGtfsModel'
+        self.message_user(request, "Deleting entire model in progress, task may take a while !No Messing")
+        new_path = "/api/admin/django_celery_results/taskresult/?task_name=gtfsApi.tasks.deleteGtfsModel"
         return HttpResponseRedirect(new_path)
 
     delete_model.short_description = "Delete entire gtfs model data !No Messing"
-    delete_model.allowed_permissions = ('change',)
+    delete_model.allowed_permissions = ("change",)
 
 
 class BlockAdmin(admin.ModelAdmin):
-    raw_id_fields = ('feed', )
+    raw_id_fields = ("feed",)
 
 
 class FareAdmin(admin.ModelAdmin):
-    raw_id_fields = ('feed', )
+    raw_id_fields = ("feed",)
 
 
 class FareRuleAdmin(admin.ModelAdmin):
-    raw_id_fields = ('fare', 'route', 'origin', 'destination', 'contains')
+    raw_id_fields = ("fare", "route", "origin", "destination", "contains")
 
 
 class FeedInfoAdmin(admin.ModelAdmin):
-    raw_id_fields = ('feed', )
+    raw_id_fields = ("feed",)
 
 
 class FrequencyAdmin(admin.ModelAdmin):
-    raw_id_fields = ('trip', )
+    raw_id_fields = ("trip",)
 
 
 class RouteAdmin(geo_admin):
-    raw_id_fields = ('feed', 'agency')
+    raw_id_fields = ("feed", "agency")
 
 
 class ServiceAdmin(admin.ModelAdmin):
-    raw_id_fields = ('feed', )
+    raw_id_fields = ("feed",)
 
 
 class ServiceDateAdmin(admin.ModelAdmin):
-    raw_id_fields = ('service', )
+    raw_id_fields = ("service",)
 
 
 class ShapeAdmin(geo_admin):
-    raw_id_fields = ('feed', )
+    raw_id_fields = ("feed",)
 
 
 class ShapePointAdmin(geo_admin):
-    raw_id_fields = ('shape', )
+    raw_id_fields = ("shape",)
 
 
 class StopAdmin(geo_admin):
-    raw_id_fields = ('feed', 'zone', 'parent_station')
+    raw_id_fields = ("feed", "zone", "parent_station")
 
 
 class StopTimeAdmin(admin.ModelAdmin):
-    raw_id_fields = ('stop', 'trip')
+    raw_id_fields = ("stop", "trip")
 
 
 class TransferAdmin(admin.ModelAdmin):
-    raw_id_fields = ('from_stop', 'to_stop')
+    raw_id_fields = ("from_stop", "to_stop")
 
 
 class TripAdmin(geo_admin):
-    raw_id_fields = ('route', 'service', 'block', 'shape')
+    raw_id_fields = ("route", "service", "block", "shape")
 
 
 class ZoneAdmin(admin.ModelAdmin):
-    raw_id_fields = ('feed', )
+    raw_id_fields = ("feed",)
 
 
 admin.site.register(Agency, AgencyAdmin)
