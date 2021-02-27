@@ -1,17 +1,17 @@
 from __future__ import absolute_import, unicode_literals
 
-from joblib import delayed, Parallel, load, dump, parallel_backend
+from joblib import delayed, Parallel, load, parallel_backend
 from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import Parse
 from datetime import datetime
-import numpy as np
-import pandas as pd
 import geopandas as gpd
+import pandas as pd
 import argparse
 import zipfile
+import vaex.ml
 import time
 import vaex
-import vaex.ml
+import sys
 import os
 
 from vaex.ml.sklearn import Predictor
@@ -31,14 +31,13 @@ from util import (
     direction_angle,
 )
 
-
 dir = os.path.dirname(__file__)
 outdir = os.path.join(dir, "output")
 gtfs_records_zip = os.path.join(dir, "data", "GtfsRRecords.zip")
 gtfs_csv_zip = os.path.join(outdir, "gtfsr_csv.zip")
 gtfs_final_csv_path = os.path.join(outdir, "gtfsr.csv")
 gtfs_processed_path = os.path.join(outdir, "gtfsr_processed.hdf5")
-scats = os.path.join(outdir, "scats_model.json")
+scats_model_path = os.path.join(outdir, "scats_model.json")
 gtfsr_processing_temp = os.path.join(outdir, "processing_temp.hdf5")
 gtfsr_arrival_means = os.path.join(outdir, "gtfsr_arrival_means.hdf5")
 
@@ -278,7 +277,7 @@ def predict_traffic_from_scats(df, start):
 
     with parallel_backend("threading"):
         # load the scats ml model
-        scats_model = load(scats)
+        scats_model = load(scats_model_path)
 
         # get the predictions from scats data
         df = scats_model.transform(df)
@@ -484,3 +483,7 @@ if __name__ == "__main__":
 
     if args.clear:
         os.remove(gtfsr_processing_temp)
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit()

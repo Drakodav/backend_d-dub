@@ -7,7 +7,9 @@ import argparse
 import vaex.ml
 import vaex
 import time
+import sys
 import os
+
 
 dir = os.path.dirname(__file__)
 outdir = os.path.join(dir, "output")
@@ -17,13 +19,19 @@ scatsFilesPath = os.path.join(dir, "data")
 finalScatsPath = os.path.join(outdir, "scats.csv")
 
 
+start = time.time()
+
+# return the time taken until now
+def duration():
+    return round(time.time() - start)
+
+
 # here we process the scats data from multiple csv file to one single file
 def process_scats_data():
     """Gets the dataset for this assignment
     Returns: dataset - pandas dataframe
     """
 
-    start = time.time()
     print("starting scats_processing")
 
     scatsFiles = os.listdir(scatsFilesPath)
@@ -37,10 +45,10 @@ def process_scats_data():
             data = pd.read_csv(datasetPath, sep=",")
             scats_data.append(data)
 
-            print(sFile, "time: {}s".format(round(time.time() - start)))
+            print(sFile, "time: {}s".format(duration()))
         elif "sites.csv" == sFile:
             sites_data = pd.read_csv(datasetPath, sep=",", na_values="NULL")
-            print(sFile, "time: {}s".format(round(time.time() - start)))
+            print(sFile, "time: {}s".format(duration()))
 
     # merge the scats datsets
     scats_dataset = pd.concat(scats_data, ignore_index=True)
@@ -83,7 +91,7 @@ def process_scats_data():
     grouped_data.columns = dataset.columns
     dataset = grouped_data
 
-    print("grouped data, time: {}s".format(round(time.time() - start)))
+    print("grouped data, time: {}s".format(duration()))
 
     # convert end time to more meaningful values
     dows = []
@@ -108,18 +116,16 @@ def process_scats_data():
 
     dataset.columns = ["site", "sum_vol", "avg_vol", "lat", "lon", "site_desc", "region", "dow", "hour", "month", "day"]
 
-    print("processed data, time: {}s".format(round(time.time() - start)))
+    print("processed data, time: {}s".format(duration()))
 
     dataset.to_csv(finalScatsPath, index=False, header=True)
-    print("finished, time: {}s".format(round(time.time() - start)))
+    print("finished, time: {}s".format(duration()))
     return
 
 
 # we create the scats model which can be used to predict unkown avg_volumes of traffic for a
 # lat: radians, lon: radians, dayOfWeek: int, hourOfDay: int
 def create_scats_ml_model():
-
-    start = time.time()
     print("starting scats ml modeling")
 
     # load existing csv into vaex dataframe
@@ -127,7 +133,6 @@ def create_scats_ml_model():
         vaex.from_csv(finalScatsPath, convert=True, copy_index=False, chunk_size=1_000_000)
 
     df = vaex.open(finalScatsPath + ".hdf5", shuffle=True)
-    df = df.sample(frac=1)
 
     # transform the features into more machine learning friendly vars
     pca_coord = vaex.ml.PCA(features=["lat", "lon"], n_components=2, prefix="pca")
@@ -142,21 +147,20 @@ def create_scats_ml_model():
     feats = df.get_column_names(regex="pca") + df.get_column_names(regex=".*_x") + df.get_column_names(regex=".*_y")
     target = "avg_vol"
 
-    print("dataWrangling done, ready to create model, time: {}s".format(round(time.time() - start)))
+    print("dataWrangling done, ready to create model, time: {}s".format(duration()))
 
     # create a randomForestRegression model
-    model = RandomForestRegressor(random_state=42, n_estimators=7 * 24)
+    model = RandomForestRegressor(random_state=42, n_estimators=5 * 24)
     vaex_model = Predictor(features=feats, target=target, model=model, prediction_name="p_avg_vol")
 
     # here we fit and train the model
     with parallel_backend("threading", n_jobs=8):
-        vaex_model.fit(df=df)
-        print("\n\nmodel created, time: {}s".format(round(time.time() - start)))
+        vaex_model.fit(df)
+        print("\n\nmodel created, time: {}s".format(duration()))
 
         dump(value=vaex_model, filename=model_out, compress=3)
-        print("model written to output, time: {}s".format(round(time.time() - start)))
 
-    print("model trained, time: {}s".format(round(time.time() - start)))
+    print("model written to output, time: {}s".format(duration()))
     return
 
 
@@ -174,8 +178,8 @@ def process_argv():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--process", help="processes the created csv with the correct data format", action="store_true")
-    parser.add_argument("--model", help="creates a prediction model using processed gtfsr data", action="store_true")
+    parser.add_argument("--process", help="processes the scats csv's", action="store_true")
+    parser.add_argument("--model", help="creates a prediction model using processed scats data", action="store_true")
     parser.add_argument("-all", help="end2end extract process and create model", action="store_true")
 
     args = parser.parse_args()
@@ -188,3 +192,7 @@ if __name__ == "__main__":
     if args.all:
         process_argv()
         create_scats_ml_model()
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit()
