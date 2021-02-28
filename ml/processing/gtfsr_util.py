@@ -36,10 +36,12 @@ outdir = os.path.join(dir, "output")
 gtfs_records_zip = os.path.join(dir, "data", "GtfsRRecords.zip")
 gtfs_csv_zip = os.path.join(outdir, "gtfsr_csv.zip")
 gtfs_final_csv_path = os.path.join(outdir, "gtfsr.csv")
+gtfs_final_hdf5_path = os.path.join(outdir, "gtfsr.csv.hdf5")
 gtfs_processed_path = os.path.join(outdir, "gtfsr_processed.hdf5")
 scats_model_path = os.path.join(outdir, "scats_model.json")
 gtfsr_processing_temp = os.path.join(outdir, "processing_temp.hdf5")
 gtfsr_arrival_means = os.path.join(outdir, "gtfsr_arrival_means.hdf5")
+stop_time_data_path = os.path.join(outdir, "stop_time_data.hdf5")
 
 start = time.time()
 
@@ -154,7 +156,7 @@ def process_gtfsr_to_csv(chunk_size: int = 200):
                     )
 
             # friendly printing to update user
-            print("{}/{}".format(curr_i, dirs_len), "time: {}s".format(duration()))
+            print(f"{curr_i}/{dirs_len}, time: {duration()}s")
 
     print("finished processing")
     return
@@ -170,15 +172,18 @@ def combine_csv():
         combined_csv = pd.concat([pd.read_csv(zip.open(f), header=None) for f in dirs])
         combined_csv.columns = entity_cols
 
+        # dropping duplicates
+        combined_csv = combined_csv.drop_duplicates(subset=entity_cols[:5])
+
         # convert to csv
         combined_csv.to_csv(gtfs_final_csv_path, index=False, header=True)
-        print("finished combining the zip files, time: {}".format(duration()))
+        print(f"finished combining the zip files, time: {duration()}")
 
-        if os.path.exists(gtfs_final_csv_path + ".hdf5"):
-            os.remove(gtfs_final_csv_path + ".hdf5")
+        if os.path.exists(gtfs_final_hdf5_path):
+            os.remove(gtfs_final_hdf5_path)
 
         vaex.from_csv(gtfs_final_csv_path, convert=True, copy_index=False, chunk_size=1000000)
-        print("finished converting to hdf5, time: {}".format(duration()))
+        print(f"finished converting to hdf5, time: {duration()}")
     return
 
 
@@ -227,42 +232,28 @@ def get_stop_time_df(trip_id, conn):
 
 
 # create a df with stop data and export to hdf5
-def add_stop_data():
-    print("*** adding stop data***")
+def create_stop_time_data():
+    print("*** creating stop time data ***")
 
-    df = pd.read_csv(gtfs_final_csv_path)  # read csv
+    df = vaex.open(gtfs_final_hdf5_path)  # read csv
 
-    # dropping duplicates
-    df = df.drop_duplicates(subset=entity_cols[:5])
-    print("dropped duplicates, time: {}".format(duration()))
-
-    # get all the stop_times for each trip in our realtime data
-    trip_list = df["trip_id"].unique()
+    trip_list = df["trip_id"].unique().tolist()
     delayed_funcs = [delayed(get_stop_time_df)(t_id, get_conn) for t_id in trip_list]
-
     parallel_pool = Parallel(n_jobs=8)
+
     res = parallel_pool(delayed_funcs)
 
-    # stop times for each trip dataframe
-    stop_time_trip_df = pd.concat(res)
-    print("concat stop_time data, time: {}".format(duration()))
+    stop_time_trip_df = vaex.from_pandas(pd.concat(res))
+    print(f"concat stop_time data, time: {duration()}")
 
-    cols = ["trip_id", "stop_sequence", "stop_id", "start_time"]
-    df = df.merge(
-        stop_time_trip_df,
-        left_on=cols,
-        right_on=cols,
-    )
-    print("merge stop_time & gtfsr data, time: {}".format(duration()))
-
-    vaex.from_pandas(df).export_hdf5(gtfsr_processing_temp)  # convert to hdf5
+    stop_time_trip_df.export_hdf5(stop_time_data_path)  # export to hdf5
+    return
 
 
-def predict_traffic_from_scats(df, start):
+def predict_traffic_from_scats(_df):
     print("*** scats predictions ***")
 
-    df = vaex.open(gtfsr_processing_temp)
-
+    df = _df.copy()
     df["hour"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").hour)
     df["dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
 
@@ -275,18 +266,14 @@ def predict_traffic_from_scats(df, start):
     cycl_transform_dow = vaex.ml.CycleTransformer(features=["dow"], n=7)
     df = cycl_transform_dow.fit_transform(df)
 
-    with parallel_backend("threading"):
-        # load the scats ml model
-        scats_model = load(scats_model_path)
+    # load the scats ml model
+    scats_model = load(scats_model_path)
 
-        # get the predictions from scats data
-        df = scats_model.transform(df)
-        print("made predictions, time: {}".format(duration()))
+    # get the predictions from scats data
+    df = scats_model.transform(df)
+    print(f"made predictions, time: {duration()}")
 
-    if os.path.exists(gtfs_processed_path):
-        os.remove(gtfs_processed_path)
-
-    df[df.get_column_names(virtual=False) + ["p_avg_vol"]].export_hdf5(gtfs_processed_path)
+    return df[_df.get_column_names() + ["p_avg_vol"]]
 
 
 def transform_data(df):
@@ -335,7 +322,7 @@ def transform_data(df):
     minmax_scaler = vaex.ml.MinMaxScaler(features=["p_avg_vol", "shape_dist_traveled", "shape_dist_between"])
     df = minmax_scaler.fit_transform(df)
 
-    print("dataWrangling done, ready to create model, time: {}s".format(duration()))
+    print(f"dataWrangling done, ready to create model, time: {duration()}s")
     return df
 
 
@@ -384,12 +371,9 @@ def train_gtfsr(df):
     # here we fit and train the model
     for i, model in enumerate(models):
         model.fit(df)
-        print("\n\nmodel {} trained, time taken: {}s".format(i, duration()))
+        print(f"\n\nmodel {i} trained, time taken: {duration()}s")
 
         df = model.transform(df)
-
-        # export our models
-        # dump(value=model, filename=os.path.join(outdir, f"gtfsr_model_{i}.json"), compress=3)
 
     prediction_final = df.p_arrival_lgbm.astype("int") * 0.5 + df.p_arrival_xgb.astype("int") * 0.5
     df[prediction_name + "_final"] = prediction_final
@@ -413,11 +397,20 @@ def extract():
 
 
 def process_data():
-    if not os.path.exists(gtfsr_processing_temp):
-        add_stop_data()
+    cols = ["trip_id", "stop_sequence", "stop_id", "start_time"]
 
-    predict_traffic_from_scats()
-    print("finished processing data, {}".format(duration()))
+    if not os.path.exists(stop_time_data_path):
+        create_stop_time_data()
+
+    df = vaex.open(gtfs_final_hdf5_path)
+
+    df = vaex_mjoin(df, vaex.open(stop_time_data_path), cols, cols, how="inner")
+    print(f"merge stop_time & gtfsr data, time: {duration()}")
+
+    df = predict_traffic_from_scats(df)
+
+    df.export_hdf5(gtfs_processed_path)
+    print(f"finished processing data, {duration()}")
 
 
 def create_model():
@@ -441,9 +434,9 @@ def create_model():
 
     # join the arrival means to our dataset
     df["arr_dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
-    df = vaex_mjoin(df, vaex.open(gtfsr_arrival_means), cols, cols)
+    df = vaex_mjoin(df, vaex.open(gtfsr_arrival_means), cols, cols, how="left")
 
-    # create a shallow copy in order to create a new state
+    # create a shallow copy in order to reset the new state
     df = df.shallow_copy()
 
     # transform our data
@@ -461,9 +454,8 @@ if __name__ == "__main__":
     parser.add_argument("--extract", help="extracts a zip of gtfsr records to a csv", action="store_true")
     parser.add_argument("--process", help="processes the created csv with the correct data format", action="store_true")
     parser.add_argument("--model", help="creates a prediction model using processed gtfsr data", action="store_true")
-    parser.add_argument("--all", help="end2end extract process and create model", action="store_true")
-    parser.add_argument("--test", help="export data to a diff file for testing", action="store_true")
     parser.add_argument("--clear", help="clear temp data", action="store_true")
+    parser.add_argument("--all", help="end2end extract process and create model", action="store_true")
 
     args = parser.parse_args()
 
@@ -482,7 +474,7 @@ if __name__ == "__main__":
         create_model()
 
     if args.clear:
-        os.remove(gtfsr_processing_temp)
+        os.remove(stop_time_data_path)
 
     if len(sys.argv) == 1:
         parser.print_help()

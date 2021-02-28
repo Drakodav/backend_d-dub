@@ -104,6 +104,8 @@ def find_trip_regex(trip_list, trip_id):
 
 # join multiple vaex columns
 def vaex_mjoin(x_left, x_right, keys_left: list, keys_right: list, how: str):
+    assert how in ["left", "right", "inner"], "how must be one of 'left', 'right' or 'inner'"
+
     assert (
         type(keys_left) == list and type(keys_right) == list
     ), f"keys must be list and list, not {type(keys_left)} and {type(keys_right)}"

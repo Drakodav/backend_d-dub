@@ -92,3 +92,9 @@ make sure local venv is activated
 ```
 python3 -m ipykernel install --user --name=projectname
 ```
+
+running ml (Machine Learning) package
+
+```
+python -m ml.processing.gtfsr_util
+```

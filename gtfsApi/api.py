@@ -28,7 +28,13 @@ from rest_framework.response import Response
 import django_filters
 from django_filters.rest_framework import FilterSet
 from django.db.models.base import Model
-from .actions import get_departures_action, get_route_action, get_trips_action, get_stops_action
+from .actions import (
+    get_departures_action,
+    get_departures_ml_action,
+    get_route_action,
+    get_trips_action,
+    get_stops_action,
+)
 
 
 # generate a default template serialize
@@ -51,7 +57,12 @@ class QueryViewSet(viewsets.ReadOnlyModelViewSet):
             ("get_routes", "routes", "get routes based on todays timetable"),
             ("get_trips", "route_trips", "get a single trip from a route"),
             ("get_stops", "trip_stops", "get the stops assosciated with a trip"),
-            ("get_departures", "stop_departures", "get trips assosciated to a stop"),
+            ("get_departures", "stop_departures", "get departure times for trips assosciated to a stop"),
+            (
+                "get_departures_prediction",
+                "stop_departures_prediction",
+                "get predicted departure times for trips assosciated to a stop",
+            ),
         ]
         array = [{"action": m[0], "url": "{}{}".format(urlPath, m[1]), "usage": m[2]} for m in messages]
         return list(array)
@@ -71,6 +82,10 @@ class QueryViewSet(viewsets.ReadOnlyModelViewSet):
     @action(methods=["get"], detail=False, url_name="stop_departures", url_path="stop_departures")
     def get_departures(self, request):
         return get_departures_action(self, request)
+
+    @action(methods=["get"], detail=False, url_name="stop_departures_prediction", url_path="stop_departures_prediction")
+    def get_departures_prediction(self, request):
+        return get_departures_ml_action(self, request)
 
 
 # generate a default template filter to use in the viewset

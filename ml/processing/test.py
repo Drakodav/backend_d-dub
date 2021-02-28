@@ -18,44 +18,44 @@ gtfsr_arrival_means = os.path.join(outdir, "gtfsr_arrival_means.hdf5")
 
 finalScatsPath = os.path.join(outdir, "scats.csv")
 
-# start = time.time()
+start = time.time()
 
-# df = vaex.open(gtfsr_processed_path)[:20]
-
-
-# df["arr_dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
-# # add arrival historical mean
-# cols = ["trip_id", "stop_id", "arr_dow"]
-# df = vaex_mjoin(df, vaex.open(gtfsr_arrival_means), cols, cols)
-
-# df.state_load(os.path.join(outdir, "gtfsr_model.json"))
-
-# print(df["arrival", "p_arrival_final"])
+df = vaex.open(gtfsr_processed_path)[:20]
 
 
-print("*** scats predictions ***")
+df["arr_dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
+# add arrival historical mean
+cols = ["trip_id", "stop_id", "arr_dow"]
+df = vaex_mjoin(df, vaex.open(gtfsr_arrival_means), cols, cols)
 
-df = vaex.open(gtfsr_processed_path)[:1]
+df.state_load(os.path.join(outdir, "gtfsr_model.json"))
 
-df.drop(["p_avg_vol"], inplace=True)
-
-print(df.get_column_names())
+print(df["arrival", "p_arrival_final"])
 
 
-df["hour"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").hour)
-df["dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
+# print("*** scats predictions ***")
 
-# pca_coord = vaex.ml.PCA(features=["lat", "lon"], n_components=2, prefix="pca")
-# df = pca_coord.fit_transform(df)
+# df = vaex.open(gtfsr_processed_path)[:1]
 
-# cycl_transform_hour = vaex.ml.CycleTransformer(features=["hour"], n=24)
-# df = cycl_transform_hour.fit_transform(df)
+# df.drop(["p_avg_vol"], inplace=True)
 
-# cycl_transform_dow = vaex.ml.CycleTransformer(features=["dow"], n=7)
-# df = cycl_transform_dow.fit_transform(df)
+# print(df.get_column_names())
 
-df.state_load(scats_model_path)
 
-print(df["p_avg_vol", "hour", "dow"])
+# df["hour"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").hour)
+# df["dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
 
-# return df[df.get_column_names(virtual=False) + ["p_avg_vol"]]
+# # pca_coord = vaex.ml.PCA(features=["lat", "lon"], n_components=2, prefix="pca")
+# # df = pca_coord.fit_transform(df)
+
+# # cycl_transform_hour = vaex.ml.CycleTransformer(features=["hour"], n=24)
+# # df = cycl_transform_hour.fit_transform(df)
+
+# # cycl_transform_dow = vaex.ml.CycleTransformer(features=["dow"], n=7)
+# # df = cycl_transform_dow.fit_transform(df)
+
+# df.state_load(scats_model_path)
+
+# print(df["p_avg_vol", "hour", "dow"])
+
+# # return df[df.get_column_names(virtual=False) + ["p_avg_vol"]]
