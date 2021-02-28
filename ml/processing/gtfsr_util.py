@@ -18,7 +18,7 @@ from vaex.ml.sklearn import Predictor
 import lightgbm
 import xgboost as xgb
 
-from util import (
+from ml.processing.util import (
     apply_dow,
     chunked_iterable,
     create_gtfsr_arrival_means,
