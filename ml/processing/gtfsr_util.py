@@ -21,7 +21,7 @@ import xgboost as xgb
 from ml.processing.util import (
     apply_dow,
     chunked_iterable,
-    create_gtfsr_arrival_means,
+    create_gtfsr_historical_means_path,
     find_trip_regex,
     get_conn,
     get_dt,
@@ -40,7 +40,7 @@ gtfs_final_hdf5_path = os.path.join(outdir, "gtfsr.csv.hdf5")
 gtfs_processed_path = os.path.join(outdir, "gtfsr_processed.hdf5")
 scats_model_path = os.path.join(outdir, "scats_model.json")
 gtfsr_processing_temp = os.path.join(outdir, "processing_temp.hdf5")
-gtfsr_arrival_means = os.path.join(outdir, "gtfsr_arrival_means.hdf5")
+gtfsr_historical_means_path = os.path.join(outdir, "gtfsr_historical_means.hdf5")
 stop_time_data_path = os.path.join(outdir, "stop_time_data.hdf5")
 
 start = time.time()
@@ -312,10 +312,7 @@ def transform_data(df):
     label_encoder = vaex.ml.LabelEncoder(features=["trip_id", "route_id"], prefix="label_encode_")
     df = label_encoder.fit_transform(df)
 
-    df["arrival"] = df["arrival"].apply(lambda t: 0 if t == 0 else t / 60)
-    df["arrival_mean"] = df["arrival_mean"].apply(lambda t: 0 if t == 0 else t / 60)
-
-    standard_scaler = vaex.ml.StandardScaler(features=["arrival_mean"])
+    standard_scaler = vaex.ml.StandardScaler(features=["arrival_mean", "p_mean_vol"])
     df = standard_scaler.fit_transform(df)
 
     minmax_scaler = vaex.ml.MinMaxScaler(features=["p_avg_vol", "shape_dist_traveled", "shape_dist_between"])
@@ -369,13 +366,12 @@ def train_gtfsr(df):
 
     # here we fit and train the model
     for i, model in enumerate(models):
-        with parallel_backend("threading", n_jobs=-1):
-            model.fit(df)
+        model.fit(df)
         print(f"\n\nmodel {i} trained, time taken: {duration()}s")
 
         df = model.transform(df)
 
-    prediction_final = df.p_arrival_lgbm.astype("float") * 0.5 + df.p_arrival_xgb.astype("float") * 0.5
+    prediction_final = df.p_arrival_lgbm.astype("float") * 0.5 + df.p_arrival_xgb.astype("int") * 0.5
     df[prediction_name + "_final"] = prediction_final
 
     df.state_write(os.path.join(outdir, "gtfsr_model.json"))
@@ -426,15 +422,31 @@ def create_model():
         & (df["departure"] <= outlier)
     ]
 
-    cols = ["trip_id", "stop_id", "arr_dow"]
+    df["arr_dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
+    df["arr_hour"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").hour)
+
+    df["arrival"] = df["arrival"].apply(lambda t: 0 if t == 0 else t / 60)
+    df["arrival_mean"] = df["arrival_mean"].apply(lambda t: 0 if t == 0 else t / 60)
+
+    cols = ["trip_id", "stop_id", "arr_dow", "arr_hour"]
 
     # if the arrival historical means dataset is not created we create it
-    if not os.path.exists(gtfsr_arrival_means):
-        create_gtfsr_arrival_means(df.to_pandas_df(), cols, gtfsr_arrival_means)
+    if not os.path.exists(gtfsr_historical_means_path):
+        print("*** creating gtfsr historical means dataset ***")
+        # creates a dataset of historical average means using the stop_id, arrival_day_of_week and trip_id identifiers
+
+        arr_means_df = (
+            df.to_pandas_df()
+            .groupby(cols)
+            .agg({"arrival": "mean", "p_avg_vol": "mean"})
+            .rename(columns={"arrival": "arrival_mean", "p_avg_vol": "p_mean_vol"})
+            .reset_index()
+        )
+
+        vaex.from_pandas(arr_means_df).export_hdf5(gtfsr_historical_means_path)
 
     # join the arrival means to our dataset
-    df["arr_dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
-    df = vaex_mjoin(df, vaex.open(gtfsr_arrival_means), cols, cols, how="left")
+    df = vaex_mjoin(df, vaex.open(gtfsr_historical_means_path), cols, cols, how="left")
 
     # create a shallow copy in order to reset the new state
     df = df.shallow_copy()

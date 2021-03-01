@@ -151,16 +151,6 @@ def vaex_mjoin(x_left, x_right, keys_left: list, keys_right: list, how: str):
     return join_result
 
 
-# creates a dataset of historical average means using the stop_id, arrival_day_of_week and trip_id identifiers
-def create_gtfsr_arrival_means(df, cols, export_path):
-    print("creating gtfsr historical arrival means dataset")
-    df["arr_dow"] = df.apply(lambda x: apply_dow(x.start_date, x.start_time, x.arrival_time), axis=1)
-
-    arr_means_df = df.groupby(cols).agg({"arrival": "mean"}).rename(columns={"arrival": "arrival_mean"}).reset_index()
-
-    vaex.from_pandas(arr_means_df).export_hdf5(export_path)
-
-
 # label encodes if an arrival update is either delayed, on time or early
 def is_delay(arrival):
     if arrival > 0:
