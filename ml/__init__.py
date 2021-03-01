@@ -5,12 +5,12 @@ from ml.processing.util import vaex_mjoin, apply_dow
 
 
 output_path = os.path.join(os.path.dirname(__file__), "processing", "output")
-gtfsr_arrival_means = os.path.join(output_path, "gtfsr_historical_means.hdf5")
+gtfsr_historical_means_path = os.path.join(output_path, "gtfsr_historical_means.hdf5")
 stop_time_data_path = os.path.join(output_path, "stop_time_data.hdf5")
 
 
 try:
-    gtfsr_arrival_means_df = vaex.open(gtfsr_arrival_means)
+    gtfsr_historical_means_df = vaex.open(gtfsr_historical_means_path)
     gtfsr_stop_time_df = vaex.open(stop_time_data_path)
 except:
     print("no ml model found")
