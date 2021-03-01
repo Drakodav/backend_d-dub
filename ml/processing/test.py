@@ -2,8 +2,9 @@ import time
 import vaex
 import vaex.ml
 import os
+import pandas as pd
 
-from util import apply_dow, vaex_mjoin, get_dt
+from ml.processing.util import apply_dow, vaex_mjoin, get_dt
 
 
 dir = os.path.dirname(__file__)
@@ -15,22 +16,45 @@ gtfsr_processed_path = os.path.join(outdir, "gtfsr_processed.hdf5")
 scats_model_path = os.path.join(outdir, "scats_model.json")
 gtfsr_processing_temp = os.path.join(outdir, "processing_temp.hdf5")
 gtfsr_arrival_means = os.path.join(outdir, "gtfsr_arrival_means.hdf5")
+gtfs_final_hdf5_path = os.path.join(outdir, "gtfsr.csv.hdf5")
+
 
 finalScatsPath = os.path.join(outdir, "scats.csv")
 
-start = time.time()
+entity_cols = [
+    "trip_id",
+    "start_date",
+    "start_time",
+    "stop_sequence",
+    "departure",
+    "arrival",
+    "timestamp",
+    "stop_id",
+]
 
-df = vaex.open(gtfsr_processed_path)[:20]
+
+temp = os.path.join(outdir, "gtfsr")
+combined_csv = pd.concat([pd.read_csv(f) for f in [temp + "_jan.csv", temp + "_feb.csv"]])
+
+combined_csv = combined_csv.drop_duplicates(subset=entity_cols[:5])
+
+combined_csv.to_csv(gtfs_final_csv_path, index=False, header=True)
+
+vaex.from_csv(gtfs_final_csv_path, convert=True, copy_index=False, chunk_size=1000000)
+
+# start = time.time()
+
+# df = vaex.open(gtfsr_processed_path)[:20]
 
 
-df["arr_dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
-# add arrival historical mean
-cols = ["trip_id", "stop_id", "arr_dow"]
-df = vaex_mjoin(df, vaex.open(gtfsr_arrival_means), cols, cols)
+# df["arr_dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
+# # add arrival historical mean
+# cols = ["trip_id", "stop_id", "arr_dow"]
+# df = vaex_mjoin(df, vaex.open(gtfsr_arrival_means), cols, cols)
 
-df.state_load(os.path.join(outdir, "gtfsr_model.json"))
+# df.state_load(os.path.join(outdir, "gtfsr_model.json"))
 
-print(df["arrival", "p_arrival_final"])
+# print(df["arrival", "p_arrival_final"])
 
 
 # print("*** scats predictions ***")

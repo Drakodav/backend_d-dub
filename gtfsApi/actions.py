@@ -1,6 +1,7 @@
 from django.db import connection
 from rest_framework.response import Response
 from django.contrib.gis.geos import GEOSGeometry
+from datetime import datetime
 from .query import (
     correct_route_query,
     route_stops_query,
@@ -187,6 +188,7 @@ def get_departures_ml_action(self, request):
 
         from ml.prediction import make_prediction
 
+        timestamp = datetime.utcfromtimestamp(feed.header.timestamp)
         for entity in feed.entity:
             if entity.HasField("trip_update"):
 
@@ -209,6 +211,8 @@ def get_departures_ml_action(self, request):
                     results[idx]["time_delta"] = {"arrival": arrival, "departure": departure}
                     results[idx]["start_time"] = entity.trip_update.trip.start_time
                     results[idx]["start_date"] = entity.trip_update.trip.start_date
+                    results[idx]["timestamp"] = timestamp
+                    results[idx]["arrival"] = arrival
                     results[idx]["p_time_delta"] = make_prediction(results[idx])
 
         return Response(parsed_data)

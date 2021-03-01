@@ -313,8 +313,7 @@ def transform_data(df):
     df = label_encoder.fit_transform(df)
 
     df["arrival"] = df["arrival"].apply(lambda t: 0 if t == 0 else t / 60)
-    df["departure"] = df["departure"].apply(lambda t: 0 if t == 0 else t / 60)
-    df["arrival_mean"] = df["arrival"].apply(lambda t: 0 if t == 0 else t / 60)
+    df["arrival_mean"] = df["arrival_mean"].apply(lambda t: 0 if t == 0 else t / 60)
 
     standard_scaler = vaex.ml.StandardScaler(features=["arrival_mean"])
     df = standard_scaler.fit_transform(df)
@@ -327,7 +326,7 @@ def transform_data(df):
 
 
 def train_gtfsr(df):
-    print("gtfsr model training...")
+    print("*** gtfsr model training ***")
 
     feats = (
         df.get_column_names(regex="pca")
@@ -370,12 +369,13 @@ def train_gtfsr(df):
 
     # here we fit and train the model
     for i, model in enumerate(models):
-        model.fit(df)
+        with parallel_backend("threading", n_jobs=-1):
+            model.fit(df)
         print(f"\n\nmodel {i} trained, time taken: {duration()}s")
 
         df = model.transform(df)
 
-    prediction_final = df.p_arrival_lgbm.astype("int") * 0.5 + df.p_arrival_xgb.astype("int") * 0.5
+    prediction_final = df.p_arrival_lgbm.astype("float") * 0.5 + df.p_arrival_xgb.astype("float") * 0.5
     df[prediction_name + "_final"] = prediction_final
 
     df.state_write(os.path.join(outdir, "gtfsr_model.json"))
