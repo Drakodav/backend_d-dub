@@ -21,7 +21,6 @@ import xgboost as xgb
 from ml.processing.util import (
     apply_dow,
     chunked_iterable,
-    create_gtfsr_historical_means_path,
     find_trip_regex,
     get_conn,
     get_dt,
@@ -424,9 +423,7 @@ def create_model():
 
     df["arr_dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
     df["arr_hour"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").hour)
-
     df["arrival"] = df["arrival"].apply(lambda t: 0 if t == 0 else t / 60)
-    df["arrival_mean"] = df["arrival_mean"].apply(lambda t: 0 if t == 0 else t / 60)
 
     cols = ["trip_id", "stop_id", "arr_dow", "arr_hour"]
 
