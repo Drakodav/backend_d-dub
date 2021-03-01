@@ -432,15 +432,15 @@ def create_model():
         print("*** creating gtfsr historical means dataset ***")
         # creates a dataset of historical average means using the stop_id, arrival_day_of_week and trip_id identifiers
 
-        arr_means_df = (
-            df.to_pandas_df()
-            .groupby(cols)
-            .agg({"arrival": "mean", "p_avg_vol": "mean"})
-            .rename(columns={"arrival": "arrival_mean", "p_avg_vol": "p_mean_vol"})
-            .reset_index()
-        )
-
-        vaex.from_pandas(arr_means_df).export_hdf5(gtfsr_historical_means_path)
+        vaex.from_pandas(
+            (
+                df.to_pandas_df()
+                .groupby(cols)
+                .agg({"arrival": "mean", "p_avg_vol": "mean"})
+                .rename(columns={"arrival": "arrival_mean", "p_avg_vol": "p_mean_vol"})
+                .reset_index()
+            )
+        ).export_hdf5(gtfsr_historical_means_path)
 
     # join the arrival means to our dataset
     df = vaex_mjoin(df, vaex.open(gtfsr_historical_means_path), cols, cols, how="left")
