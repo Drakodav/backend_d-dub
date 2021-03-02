@@ -16,9 +16,9 @@ import os
 
 from vaex.ml.sklearn import Predictor
 import lightgbm
-import xgboost as xgb
+import xgboost
 
-from .util import (
+from ml.processing.util import (
     apply_dow,
     chunked_iterable,
     find_trip_regex,
@@ -278,6 +278,9 @@ def predict_traffic_from_scats(_df):
 
 
 def transform_data(df):
+    # strong type casting in case str
+    df["direction"] = df["direction"].astype("int64")
+
     df["is_delayed"] = df["arrival"].apply(is_delay)
 
     # transform the features into more machine learning friendly vars
@@ -317,9 +320,6 @@ def transform_data(df):
     minmax_scaler = vaex.ml.MinMaxScaler(features=["shape_dist_traveled", "shape_dist_between"])
     df = minmax_scaler.fit_transform(df)
 
-    # strong type casting in case str
-    df["direction"] = df["direction"].astype("int64")
-
     print(f"dataWrangling done, ready to create model, time: {duration()}s")
     return df
 
@@ -354,20 +354,20 @@ def train_gtfsr(df):
     }
 
     models = [
-        # lightgmb Regressor
+        # lightGBM Regressor
         Predictor(
             features=feats,
             target=target,
             prediction_name=prediction_name + "_lgbm",
             model=lightgbm.LGBMRegressor(**lgbm_params, n_jobs=-1),
         ),
-        # XGBoost Regressor
-        Predictor(
-            features=feats,
-            target=target,
-            prediction_name=prediction_name + "_xgb",
-            model=xgb.XGBRegressor(max_depth=50, min_child_weight=1, n_estimators=250, n_jobs=-1, learning_rate=0.3),
-        ),
+        # # XGBoost Regressor
+        # Predictor(
+        #     features=feats,
+        #     target=target,
+        #     prediction_name=prediction_name + "_xgb",
+        #     model=xgboost.XGBRegressor(max_depth=50, min_child_weight=1, n_estimators=200, n_jobs=-1, learning_rate=0.3),
+        # ),
     ]
 
     # here we fit and train the model
@@ -377,9 +377,9 @@ def train_gtfsr(df):
 
         df = model.transform(df)
 
-    df[prediction_name + "_final"] = (
-        df["p_arrival_lgbm"].astype("float64") * 0.5 + df["p_arrival_xgb"].astype("float64") * 0.5
-    )
+    # df[prediction_name + "_final"] = (
+    #     df["p_arrival_lgbm"].astype("float64") * 0.5 + df["p_arrival_xgb"].astype("float64") * 0.5
+    # )
 
     df.state_write(gtfsr_model_out_path)
     print("exported model")

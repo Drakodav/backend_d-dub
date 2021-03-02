@@ -1,11 +1,12 @@
-from datetime import datetime
-import os
 import vaex
 from ml.processing.util import vaex_mjoin, apply_dow, get_dt
-from ml.processing.gtfsr_util import predict_traffic_from_scats
-from . import get_st_df, get_hm_df, output_path
+from . import get_model, get_st_df, get_hm_df
 
 
+# converts input data into the correct format for predictions to happen.
+# !IMPORTANT LESSONS LEARNT! -> everything must be the same, in a vaex pipeline/state,
+# both datatypes must be the same for every feature, also, an expression wont be recognised when loading
+# the state on.
 def make_prediction(data):
     st_df = get_st_df()
     hm_df = get_hm_df()
@@ -19,13 +20,13 @@ def make_prediction(data):
         "stop_id": [data["stop_id"]],
         "start_time": [data["start_time"]],
         "start_date": [int(data["start_date"])],
-        "timestamp": [data["timestamp"]],
-        "arrival": [data["arrival"]],
+        "timestamp": [str(data["timestamp"])],
+        "arrival": [float(data["arrival"] / 60)],
     }
 
     live_df = vaex.from_dict(formatted_data)
-    # print(data["trip_id"] in st_df.trip_id.unique().tolist())
 
+    # join stop time data, filtering improves speed by only copying relevant rows
     cols = ["trip_id", "stop_sequence", "stop_id", "start_time"]
     live_df = vaex_mjoin(
         live_df,
@@ -43,12 +44,9 @@ def make_prediction(data):
     if not len(live_df) == 1:
         return ""
 
-    # # print(len(live_df))
-
-    # join the arrival means to our dataset
+    # join the historical means to our dataset
     live_df["arr_dow"] = live_df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
     live_df["arr_hour"] = live_df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").hour)
-    live_df["arrival"] = live_df["arrival"].apply(lambda t: 0 if t == 0 else t / 60)
 
     temp_df = hm_df[
         (hm_df["trip_id"] == data["trip_id"])
@@ -72,38 +70,18 @@ def make_prediction(data):
     if not len(live_df) == 1:
         return ""
 
-    live_df = live_df[
-        [
-            "trip_id",
-            "start_date",
-            "start_time",
-            "stop_sequence",
-            "arrival",
-            "timestamp",
-            "stop_id",
-            "arrival_time",
-            "shape_dist_traveled",
-            "direction",
-            "route_id",
-            "lat",
-            "lon",
-            "direction_angle",
-            "shape_dist_between",
-            "arr_dow",
-            "arr_hour",
-            "arrival_mean",
-            "p_mean_vol",
-        ]
-    ]
-
-    live_df["direction"] = live_df["direction"].astype("int")
-
+    # import os
     # live_df.export_hdf5(os.path.join(output_path, "deploy_gtfsr.hdf5"))
 
-    # live_df.state_load(os.path.join(output_path, "gtfsr_model.json"))
-    print(live_df)
+    live_df["direction"] = live_df["direction"].astype("int64")
 
-    # # print(live_df[["p_arrival_lgbm"]])
+    try:
+        # load gtfsr model state pipeline, this will us a virtual column with predicted arrival time
+        live_df.state_set(get_model())
 
-    # return live_df[["p_arrival_lgbm"]][0]
+        if len(live_df) == 1:
+            return live_df[["p_arrival_lgbm"]][0][0]
+    except Exception as e:
+        # raise e
+        return ""
     return ""

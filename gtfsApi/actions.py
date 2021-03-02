@@ -9,6 +9,7 @@ from .query import (
     stop_departures_query,
     trip_from_route_query,
 )
+from ml.prediction import make_prediction
 from gtfsRApi.models import GtfsRApi
 from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import ParseDict
@@ -186,9 +187,7 @@ def get_departures_ml_action(self, request):
         feed = gtfs_realtime_pb2.FeedMessage()
         ParseDict(realtime_data, feed)
 
-        from ml.prediction import make_prediction
-
-        timestamp = str(datetime.utcfromtimestamp(feed.header.timestamp))
+        timestamp = datetime.utcfromtimestamp(feed.header.timestamp)
         for entity in feed.entity:
             if entity.HasField("trip_update"):
 
