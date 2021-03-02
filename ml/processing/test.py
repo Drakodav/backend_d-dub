@@ -1,10 +1,16 @@
 import time
+from numpy.core.arrayprint import printoptions
 import vaex
-import vaex.ml
 import os
 import pandas as pd
+from vaex.ml.sklearn import Predictor
 
-from ml.processing.util import apply_dow, vaex_mjoin, get_dt
+# import lightgbm
+# from vaex.ml.sklearn import Predictor
+# import vaex.ml
+import xgboost as xgb
+
+from .util import apply_dow, vaex_mjoin, get_dt
 
 
 dir = os.path.dirname(__file__)
@@ -36,15 +42,15 @@ entity_cols = [
 def combine_csv():
     temp = os.path.join(outdir, "gtfsr")
     combined_csv = pd.concat([pd.read_csv(f) for f in [temp + "_jan.csv", temp + "_feb.csv"]])
-
     combined_csv = combined_csv.drop_duplicates(subset=entity_cols[:5])
-
     combined_csv.to_csv(gtfs_final_csv_path, index=False, header=True)
 
     vaex.from_csv(gtfs_final_csv_path, convert=True, copy_index=False, chunk_size=1000000)
 
 
 live_df = vaex.open(os.path.join(outdir, "deploy_gtfsr.hdf5"))
+# live_df = vaex.open(os.path.join(outdir, "gtfsr_model.hdf5"))
 
 live_df.state_load(os.path.join(outdir, "gtfsr_model.json"))
-print(live_df.get_column_names())
+
+print(live_df)

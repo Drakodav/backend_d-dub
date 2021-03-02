@@ -18,7 +18,7 @@ from vaex.ml.sklearn import Predictor
 import lightgbm
 import xgboost as xgb
 
-from ml.processing.util import (
+from .util import (
     apply_dow,
     chunked_iterable,
     find_trip_regex,
@@ -294,8 +294,6 @@ def transform_data(df):
     df["t_second"] = df["timestamp"].apply(lambda t: get_dt(t, "%Y-%m-%d %H:%M:%S").second)
 
     # transform arrival
-    # df["arr_dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
-    # df["arr_hour"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").hour)
     df["arr_minute"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").minute)
     df["arr_second"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").second)
 
@@ -319,6 +317,9 @@ def transform_data(df):
     minmax_scaler = vaex.ml.MinMaxScaler(features=["shape_dist_traveled", "shape_dist_between"])
     df = minmax_scaler.fit_transform(df)
 
+    # strong type casting in case str
+    df["direction"] = df["direction"].astype("int64")
+
     print(f"dataWrangling done, ready to create model, time: {duration()}s")
     return df
 
@@ -333,8 +334,12 @@ def train_gtfsr(df):
         + df.get_column_names(regex="standard_scaled_*")
         + df.get_column_names(regex="label_encode_*")
         + df.get_column_names(regex="minmax_scaled_*")
-        + ["stop_sequence", "direction", "is_delayed"]
+        + ["stop_sequence", "is_delayed", "direction"]
     )
+
+    assert [
+        df[feat].dtype for feat in feats if not df[feat].dtype in ["float64", "int64"]
+    ] == [], f"Training feature must be a number type {df[feats].dtypes}"
 
     target = "arrival"
     prediction_name = "p_arrival"
@@ -356,13 +361,13 @@ def train_gtfsr(df):
             prediction_name=prediction_name + "_lgbm",
             model=lightgbm.LGBMRegressor(**lgbm_params, n_jobs=-1),
         ),
-        # # XGBoost Regressor
-        # Predictor(
-        #     features=feats,
-        #     target=target,
-        #     prediction_name=prediction_name + "_xgb",
-        #     model=xgb.XGBRegressor(max_depth=50, min_child_weight=1, n_estimators=300, n_jobs=-1, learning_rate=0.3),
-        # ),
+        # XGBoost Regressor
+        Predictor(
+            features=feats,
+            target=target,
+            prediction_name=prediction_name + "_xgb",
+            model=xgb.XGBRegressor(max_depth=50, min_child_weight=1, n_estimators=250, n_jobs=-1, learning_rate=0.3),
+        ),
     ]
 
     # here we fit and train the model
@@ -372,8 +377,9 @@ def train_gtfsr(df):
 
         df = model.transform(df)
 
-    # prediction_final = df.p_arrival_lgbm.astype("float") * 0.5 + df.p_arrival_xgb.astype("int") * 0.5
-    # df[prediction_name + "_final"] = prediction_final
+    df[prediction_name + "_final"] = (
+        df["p_arrival_lgbm"].astype("float64") * 0.5 + df["p_arrival_xgb"].astype("float64") * 0.5
+    )
 
     df.state_write(gtfsr_model_out_path)
     print("exported model")

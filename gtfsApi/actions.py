@@ -188,7 +188,7 @@ def get_departures_ml_action(self, request):
 
         from ml.prediction import make_prediction
 
-        timestamp = datetime.utcfromtimestamp(feed.header.timestamp)
+        timestamp = str(datetime.utcfromtimestamp(feed.header.timestamp))
         for entity in feed.entity:
             if entity.HasField("trip_update"):
 

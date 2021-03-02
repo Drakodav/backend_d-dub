@@ -145,9 +145,9 @@ def vaex_mjoin(x_left, x_right, keys_left: list, keys_right: list, how: str):
                 x_right["group_right"] = x_right["group_right"] + "_" + add_right
                 x_left["group_left"] = x_left["group_left"] + "_" + add_left
 
-        x_right.drop(keys_right, inplace=True)
+        x_right = x_right.drop(keys_right)
         join_result = x_left.join(x_right, left_on="group_left", right_on="group_right", how=how)
-        join_result.drop(["group_left", "group_right"], inplace=True)
+        join_result = join_result.drop(["group_left", "group_right"])
     return join_result
 
 
