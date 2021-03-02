@@ -8,7 +8,10 @@ celerybeat-schedule
 *.zip
 *.csv
 *.hdf5
-ml/processing/output/*
+ml/processing/output/*.hdf5
+ml/processing/output/*.json
+ml/processing/output/*.csv
+ml/processing/output/*.jpg
 ml/processing/data/*
 
 # Byte-compiled / optimized / DLL files
