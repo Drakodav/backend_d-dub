@@ -10,7 +10,6 @@ from . import get_model, get_st_df, get_hm_df
 def make_prediction(data):
     st_df = get_st_df()
     hm_df = get_hm_df()
-
     if not "start_time" in data or not "start_date" in data:
         return ""
 
@@ -73,14 +72,19 @@ def make_prediction(data):
     # import os
     # live_df.export_hdf5(os.path.join(output_path, "deploy_gtfsr.hdf5"))
 
+    # assert same type
     live_df["direction"] = live_df["direction"].astype("int64")
+
+    # materialize virtual columns to match model state
+    live_df = live_df.materialize("arr_dow")
+    live_df = live_df.materialize("arr_hour")
 
     try:
         # load gtfsr model state pipeline, this will us a virtual column with predicted arrival time
         live_df.state_set(get_model())
 
         if len(live_df) == 1:
-            return live_df[["p_arrival_lgbm"]][0][0]
+            return (round(live_df[["p_arrival_lgbm"]][0][0]) * 60), live_df[["p_arrival_lgbm"]][0][0]
     except Exception as e:
         # raise e
         return ""

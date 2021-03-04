@@ -212,7 +212,7 @@ def get_departures_ml_action(self, request):
                     results[idx]["start_date"] = entity.trip_update.trip.start_date
                     results[idx]["timestamp"] = timestamp
                     results[idx]["arrival"] = arrival
-                    results[idx]["p_time_delta"] = make_prediction(results[idx])
+                    results[idx]["p_time_delta"], results[idx]["actual_prediction"] = make_prediction(results[idx])
 
         return Response(parsed_data)
     return Response(message)
