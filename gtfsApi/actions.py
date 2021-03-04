@@ -16,6 +16,7 @@ from google.protobuf.json_format import ParseDict
 from django.conf import settings
 import requests
 import json
+from ml.apps import MlConfig
 
 
 def get_stops_action(self, request):

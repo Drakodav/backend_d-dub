@@ -1,17 +1,20 @@
 import vaex
 from ml.processing.util import vaex_mjoin, apply_dow, get_dt
-from . import get_model, get_st_df, get_hm_df
-
+from ml.apps import MlConfig
 
 # converts input data into the correct format for predictions to happen.
 # !IMPORTANT LESSONS LEARNT! -> everything must be the same, in a vaex pipeline/state,
 # both datatypes must be the same for every feature, also, an expression wont be recognised when loading
 # the state on.
 def make_prediction(data):
-    st_df = get_st_df()
-    hm_df = get_hm_df()
+    st_df = MlConfig.st_df
+    hm_df = MlConfig.hm_df
+    model = MlConfig.state_model
+
+    empty = ("", "")
+
     if not "start_time" in data or not "start_date" in data:
-        return ""
+        return empty
 
     formatted_data = {
         "trip_id": [data["trip_id"]],
@@ -41,7 +44,7 @@ def make_prediction(data):
     )
 
     if not len(live_df) == 1:
-        return ""
+        return empty
 
     # join the historical means to our dataset
     live_df["arr_dow"] = live_df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
@@ -55,7 +58,7 @@ def make_prediction(data):
     ]
 
     if not len(temp_df) > 0:
-        return ""
+        return empty
 
     cols = ["trip_id", "stop_id", "arr_dow", "arr_hour"]
     live_df = vaex_mjoin(
@@ -67,10 +70,7 @@ def make_prediction(data):
     )
 
     if not len(live_df) == 1:
-        return ""
-
-    # import os
-    # live_df.export_hdf5(os.path.join(output_path, "deploy_gtfsr.hdf5"))
+        return empty
 
     # assert same type
     live_df["direction"] = live_df["direction"].astype("int64")
@@ -80,12 +80,10 @@ def make_prediction(data):
     live_df = live_df.materialize("arr_hour")
 
     try:
-        # load gtfsr model state pipeline, this will us a virtual column with predicted arrival time
-        live_df.state_set(get_model())
+        live_df.state_set(model)
 
         if len(live_df) == 1:
             return (round(live_df[["p_arrival_lgbm"]][0][0]) * 60), live_df[["p_arrival_lgbm"]][0][0]
-    except Exception as e:
-        # raise e
-        return ""
-    return ""
+    except:
+        return empty
+    return empty
