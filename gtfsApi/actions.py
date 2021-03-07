@@ -10,13 +10,13 @@ from .query import (
     trip_from_route_query,
 )
 from ml.prediction import make_prediction
+from ml.processing.util import find_trip_regex
 from gtfsRApi.models import GtfsRApi
 from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import ParseDict
 from django.conf import settings
 import requests
 import json
-from ml.apps import MlConfig
 
 
 def get_stops_action(self, request):
@@ -135,9 +135,9 @@ def get_departures_action(self, request):
         for entity in feed.entity:
             if entity.HasField("trip_update"):
                 stop_time_update = entity.trip_update.stop_time_update
-                trip_id = str(entity.trip_update.trip.trip_id)
+                trip_id = find_trip_regex(trip_ids, entity.trip_update.trip.trip_id)
 
-                if trip_id in trip_ids:
+                if not trip_id == None:
                     idx = trip_ids.index(trip_id)
                     curr_stop_sequence = results[idx]["stop_sequence"]
 
@@ -191,11 +191,9 @@ def get_departures_ml_action(self, request):
         timestamp = datetime.utcfromtimestamp(feed.header.timestamp)
         for entity in feed.entity:
             if entity.HasField("trip_update"):
-
                 stop_time_update = entity.trip_update.stop_time_update
-                trip_id = str(entity.trip_update.trip.trip_id)
-
-                if trip_id in trip_ids:
+                trip_id = find_trip_regex(trip_ids, entity.trip_update.trip.trip_id)
+                if not trip_id == None:
                     idx = trip_ids.index(trip_id)
                     curr_stop_sequence = results[idx]["stop_sequence"]
 

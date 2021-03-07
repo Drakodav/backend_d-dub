@@ -89,6 +89,9 @@ def find_trip_regex(trip_list, trip_id):
         route_id[2] = "[b|d]12"
         tokens[2] = "-".join(route_id)
 
+    if "y" in tokens[1]:
+        tokens[1] = "*"
+
     tokens[3] = "*"
 
     reg = ".".join(tokens)

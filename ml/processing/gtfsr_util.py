@@ -421,14 +421,14 @@ def create_model():
         df = vaex.open(gtfs_processed_path)
         df = df.sample(frac=1)
 
-        # remove outliers from dataset, all delays over 20 minutes
-        outlier = 60 * 20
-        df = df[
-            (df["arrival"] >= -outlier)
-            & (df["arrival"] <= outlier)
-            & (df["departure"] >= -outlier)
-            & (df["departure"] <= outlier)
-        ]
+        # # remove outliers from dataset, all delays over 20 minutes
+        # outlier = 60 * 20
+        # df = df[
+        #     (df["arrival"] >= -outlier)
+        #     & (df["arrival"] <= outlier)
+        #     & (df["departure"] >= -outlier)
+        #     & (df["departure"] <= outlier)
+        # ]
 
         df["arr_dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
         df["arr_hour"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").hour)

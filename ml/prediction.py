@@ -28,16 +28,25 @@ def make_prediction(data):
 
     live_df = vaex.from_dict(formatted_data)
 
+    live_df["start_date"] = live_df["start_date"].astype("int64")
+    live_df["stop_sequence"] = live_df["stop_sequence"].astype("int64")
+    live_df["arrival"] = live_df["arrival"].astype("int64")
+
+    temp_df = st_df[
+        (st_df["trip_id"] == data["trip_id"])
+        & (st_df["stop_sequence"] == data["stop_sequence"])
+        & (st_df["stop_id"] == data["stop_id"])
+        & (st_df["start_time"] == data["start_time"])
+    ].copy()
+
+    if not len(temp_df) > 0:
+        return empty
+
     # join stop time data, filtering improves speed by only copying relevant rows
     cols = ["trip_id", "stop_sequence", "stop_id", "start_time"]
     live_df = vaex_mjoin(
         live_df,
-        st_df[
-            (st_df["trip_id"] == data["trip_id"])
-            & (st_df["stop_sequence"] == data["stop_sequence"])
-            & (st_df["stop_id"] == data["stop_id"])
-            & (st_df["start_time"] == data["start_time"])
-        ].copy(),
+        temp_df,
         cols,
         cols,
         how="inner",
@@ -76,8 +85,11 @@ def make_prediction(data):
     live_df["direction"] = live_df["direction"].astype("int64")
 
     # materialize virtual columns to match model state
-    live_df = live_df.materialize("arr_dow")
-    live_df = live_df.materialize("arr_hour")
+    [
+        live_df.materialize(col, inplace=True)
+        for col in live_df.get_column_names()
+        if not col in live_df.get_column_names(virtual=False)
+    ]
 
     try:
         live_df.state_set(model)
