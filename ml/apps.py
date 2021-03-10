@@ -16,14 +16,14 @@ class MlConfig(AppConfig):
     if not all(
         [os.path.exists(p) == True for p in [gtfsr_historical_means_path, stop_time_data_path, gtfsr_model_path]]
     ):
-        raise "not all ml models found"
+        raise Exception("not all ml models found")
 
     hm_df = vaex.open(gtfsr_historical_means_path)
     st_df = vaex.open(stop_time_data_path)
 
     model_df = vaex.from_dict(
         {
-            "trip_id": array(["19389.1.60-155-d12-1.89.O"], dtype=object),
+            "route_id": array(["60-155-d12-1"], dtype=object),
             "start_date": array([20210302]),
             "start_time": array(["19:20:00"], dtype=object),
             "stop_sequence": array([24]),

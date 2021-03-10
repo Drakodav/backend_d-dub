@@ -2,8 +2,6 @@ from datetime import datetime, timedelta
 import numpy as np
 import itertools
 import psycopg2
-import vaex
-import time
 import re
 
 
@@ -69,6 +67,31 @@ def run_query(query: str = ""):
             conn.close()
 
 
+# find the correct route
+def find_route_regex(route_list, route_id):
+    if not type(route_id) == str:
+        return None
+
+    tokens = route_id.split("-")
+    if not len(tokens) == 4:
+        return None
+
+    if tokens[2] in ["ga2", "gad"]:
+        tokens[2] = "ga[2|d]"
+    elif tokens[2] in ["d12", "b12"]:
+        tokens[2] = "[b|d]12"
+
+    reg = "-".join(tokens)  # join tokens by using a dot between
+
+    r = re.compile(reg)
+    matched_list = list(filter(r.match, route_list))  # get a list of matched trip ids
+
+    if len(matched_list) > 0:
+        return matched_list[0]
+    else:
+        return None
+
+
 # realtime trip_id can be quite unstable,
 # this functions attempts to alleviate it by searching and replacing
 # observed anomalies.
@@ -89,15 +112,13 @@ def find_trip_regex(trip_list, trip_id):
         route_id[2] = "[b|d]12"
         tokens[2] = "-".join(route_id)
 
-    if "y" in tokens[1]:
-        tokens[1] = "*"
-
+    # this token seems to be quite redundant and random most of the time.
     tokens[3] = "*"
 
-    reg = ".".join(tokens)
+    reg = ".".join(tokens)  # join tokens by using a dot between
 
     r = re.compile(reg)
-    matched_list = list(filter(r.match, trip_list))
+    matched_list = list(filter(r.match, trip_list))  # get a list of matched trip ids
 
     if len(matched_list) > 0:
         return matched_list[0]
@@ -106,7 +127,7 @@ def find_trip_regex(trip_list, trip_id):
 
 
 # join multiple vaex columns
-def vaex_mjoin(x_left, x_right, keys_left: list, keys_right: list, how: str):
+def vaex_mjoin(x_left, x_right, keys_left: list, keys_right: list, how: str, **kwargs):
     assert how in ["left", "right", "inner"], "how must be one of 'left', 'right' or 'inner'"
 
     assert (
@@ -117,12 +138,7 @@ def vaex_mjoin(x_left, x_right, keys_left: list, keys_right: list, how: str):
         keys_right
     ), f"lenghts of left and right keys dont match, left: {len(keys_left)} right: {len(keys_right)}"
 
-    if len(keys_left) == 1:
-        join_result = x_left.join(
-            x_right, left_on=keys_left[0], right_on=keys_right[0], how=how, allow_duplication=True
-        )
-
-    elif len(keys_left) > 1:
+    if len(keys_left) > 1:
         for idx, zp in enumerate(zip(keys_left, keys_right)):
             left_key, right_key = zp
 
@@ -149,7 +165,7 @@ def vaex_mjoin(x_left, x_right, keys_left: list, keys_right: list, how: str):
                 x_left["group_left"] = x_left["group_left"] + "_" + add_left
 
         x_right = x_right.drop(keys_right)
-        join_result = x_left.join(x_right, left_on="group_left", right_on="group_right", how=how)
+        join_result = x_left.join(x_right, left_on="group_left", right_on="group_right", how=how, **kwargs)
         join_result = join_result.drop(["group_left", "group_right"])
     return join_result
 
@@ -162,3 +178,75 @@ def is_delay(arrival):
         return 0
     elif arrival < 0:
         return -1
+
+
+# get direction from trip
+def dir_f_trip(trip_id):
+    tokens = trip_id.split(".")
+
+    if not len(tokens) == 5:
+        return 500
+
+    if tokens[4] == "I":
+        return 1
+    else:
+        return 0
+
+
+# concats cols together using a divider
+def concat_cols(dt, cols, name="concat_col", divider="|"):
+    # Create the join column
+    for i, col in enumerate(cols):
+        if not dt[col].dtype == str:
+            dt[col] = dt[col].astype(str)
+
+        if i == 0:
+            dt[name] = dt[col].fillna("")
+        else:
+            dt[name] = dt[name] + divider + dt[col].fillna("")
+
+    # Ensure it's a string; on rare occassions it's an object
+    if not dt[name].dtype == str:
+        dt[name] = dt[name].astype(str)
+
+    return dt, name
+
+
+# https://github.com/vaexio/vaex/issues/746
+# de duplicate rows, similar functionality to pandas drop_duplicates functionality
+def vx_dedupe(dt, columns=None, concat_first=True):
+    # Get and join columns
+    init_cols = dt.get_column_names()
+    if columns is None:
+        columns = init_cols
+    if concat_first:
+        dt, concat_col = concat_cols(dt, columns)
+        col_names = [concat_col]
+    else:
+        col_names = columns
+
+    # Add named sets
+    sets = [dt._set(col_name) for col_name in col_names]
+    counts = [set.count for set in sets]
+    set_names = [dt.add_variable("set_{}".format(col_name), set, unique=True) for col_name, set in zip(col_names, sets)]
+
+    # Create 'row_id' column that gives each unique row the same ID
+    expression = dt["_ordinal_values({}, {})".format(col_names[0], set_names[0])].astype("int64")
+    product_count = 1
+    for col_name, set_name, count in zip(col_names[1:], set_names[1:], counts[:-1]):
+        product_count *= count
+        expression = (
+            expression + dt["_ordinal_values({}, {})".format(col_name, set_name)].astype("int64") * product_count
+        )
+    dt["row_id"] = expression
+
+    # This is not 'stable'; because it is multithreaded, we may get a different id each time
+    index = dt._index("row_id")
+    unique_row_ids = dt.row_id.unique()
+    indices = index.map_index(unique_row_ids)
+
+    # Dedupe
+    deduped = dt.take(indices)
+    deduped = deduped[init_cols]
+
+    return deduped

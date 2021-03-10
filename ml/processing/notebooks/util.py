@@ -69,6 +69,31 @@ def run_query(query: str = ""):
             conn.close()
 
 
+# find the correct route
+def find_route_regex(route_list, route_id):
+    if not type(route_id) == str:
+        return None
+
+    tokens = route_id.split("-")
+    if not len(tokens) == 4:
+        return None
+
+    if tokens[2] in ["ga2", "gad"]:
+        tokens[2] = "ga[2|d]"
+    elif tokens[2] in ["d12", "b12"]:
+        tokens[2] = "[b|d]12"
+
+    reg = "-".join(tokens)  # join tokens by using a dot between
+
+    r = re.compile(reg)
+    matched_list = list(filter(r.match, route_list))  # get a list of matched trip ids
+
+    if len(matched_list) > 0:
+        return matched_list[0]
+    else:
+        return None
+
+
 # realtime trip_id can be quite unstable,
 # this functions attempts to alleviate it by searching and replacing
 # observed anomalies.
@@ -89,12 +114,20 @@ def find_trip_regex(trip_list, trip_id):
         route_id[2] = "[b|d]12"
         tokens[2] = "-".join(route_id)
 
+    # there seems to be a period where there are trip id's with
+    # y in the second token and no matching first token, weird, anywho
+    # we can take our best closest guess. nothing I can do about this. maybe update dataset
+    if "y" in tokens[1]:
+        tokens[0] = ""
+        tokens[1] = "*"
+
+    # this token seems to be quite redundant and random most of the time.
     tokens[3] = "*"
 
-    reg = ".".join(tokens)
+    reg = ".".join(tokens)  # join tokens by using a dot between
 
     r = re.compile(reg)
-    matched_list = list(filter(r.match, trip_list))
+    matched_list = list(filter(r.match, trip_list))  # get a list of matched trip ids
 
     if len(matched_list) > 0:
         return matched_list[0]
@@ -103,7 +136,9 @@ def find_trip_regex(trip_list, trip_id):
 
 
 # join multiple vaex columns
-def vaex_mjoin(x_left, x_right, keys_left: list, keys_right: list, how: str):
+def vaex_mjoin(x_left, x_right, keys_left: list, keys_right: list, how: str, **kwargs):
+    assert how in ["left", "right", "inner"], "how must be one of 'left', 'right' or 'inner'"
+
     assert (
         type(keys_left) == list and type(keys_right) == list
     ), f"keys must be list and list, not {type(keys_left)} and {type(keys_right)}"
@@ -114,7 +149,7 @@ def vaex_mjoin(x_left, x_right, keys_left: list, keys_right: list, how: str):
 
     if len(keys_left) == 1:
         join_result = x_left.join(
-            x_right, left_on=keys_left[0], right_on=keys_right[0], how=how, allow_duplication=True
+            x_right, left_on=keys_left[0], right_on=keys_right[0], how=how, allow_duplication=True, **kwargs
         )
 
     elif len(keys_left) > 1:
@@ -143,20 +178,10 @@ def vaex_mjoin(x_left, x_right, keys_left: list, keys_right: list, how: str):
                 x_right["group_right"] = x_right["group_right"] + "_" + add_right
                 x_left["group_left"] = x_left["group_left"] + "_" + add_left
 
-        x_right.drop(keys_right, inplace=True)
-        join_result = x_left.join(x_right, left_on="group_left", right_on="group_right", how=how)
-        join_result.drop(["group_left", "group_right"], inplace=True)
+        x_right = x_right.drop(keys_right)
+        join_result = x_left.join(x_right, left_on="group_left", right_on="group_right", how=how, **kwargs)
+        join_result = join_result.drop(["group_left", "group_right"])
     return join_result
-
-
-# creates a dataset of historical average means using the stop_id, arrival_day_of_week and trip_id identifiers
-def create_gtfsr_arrival_means(df, cols, export_path):
-    print("creating gtfsr historical arrival means dataset")
-    df["arr_dow"] = df.apply(lambda x: apply_dow(x.start_date, x.start_time, x.arrival_time), axis=1)
-
-    arr_means_df = df.groupby(cols).agg({"arrival": "mean"}).rename(columns={"arrival": "arrival_mean"}).reset_index()
-
-    vaex.from_pandas(arr_means_df).export_hdf5(export_path)
 
 
 # label encodes if an arrival update is either delayed, on time or early

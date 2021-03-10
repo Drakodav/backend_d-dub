@@ -207,11 +207,17 @@ def get_departures_ml_action(self, request):
                                 arrival = stop_update.arrival.delay
 
                     results[idx]["time_delta"] = {"arrival": arrival, "departure": departure}
-                    results[idx]["start_time"] = entity.trip_update.trip.start_time
-                    results[idx]["start_date"] = entity.trip_update.trip.start_date
-                    results[idx]["timestamp"] = timestamp
-                    results[idx]["arrival"] = arrival
-                    results[idx]["p_time_delta"], results[idx]["actual_prediction"] = make_prediction(results[idx])
+
+                    results[idx]["p_time_delta"], results[idx]["actual_prediction"] = make_prediction(
+                        {
+                            **results[idx],
+                            "start_time": str(entity.trip_update.trip.start_time),
+                            "start_date": str(entity.trip_update.trip.start_date),
+                            "timestamp": str(timestamp),
+                            "arrival": arrival,
+                            "route_id": str(entity.trip_update.trip.route_id),
+                        }
+                    )
 
         return Response(parsed_data)
     return Response(message)

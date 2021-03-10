@@ -21,19 +21,23 @@ import xgboost
 from ml.processing.util import (
     apply_dow,
     chunked_iterable,
-    find_trip_regex,
+    find_route_regex,
     get_conn,
     get_dt,
     run_query,
     vaex_mjoin,
     is_delay,
     direction_angle,
+    dir_f_trip,
+    vx_dedupe,
 )
+
+month = 2
 
 dir = os.path.dirname(__file__)
 outdir = os.path.join(dir, "output")
-gtfs_records_zip = os.path.join(dir, "data", "GtfsRRecords.zip")
-gtfs_csv_zip = os.path.join(outdir, "gtfsr_csv.zip")
+gtfs_records_zip = os.path.join(dir, "data", f"GtfsRRecords_{month}.zip")
+gtfs_csv_zip = os.path.join(outdir, f"gtfsr_csv_{month}.zip")
 gtfs_final_csv_path = os.path.join(outdir, "gtfsr.csv")
 gtfs_final_hdf5_path = os.path.join(outdir, "gtfsr.csv.hdf5")
 gtfs_processed_path = os.path.join(outdir, "gtfsr_processed.hdf5")
@@ -48,13 +52,14 @@ start = time.time()
 
 entity_cols = [
     "trip_id",
+    "route_id",
     "start_date",
     "start_time",
     "stop_sequence",
     "departure",
     "arrival",
-    "timestamp",
     "stop_id",
+    "timestamp",
 ]
 
 # return the time taken until now
@@ -64,7 +69,7 @@ def duration():
 
 # splits from the main processing of process_gtfsr_to_csv in order to
 # allow multiple threads and cores for performance reasons
-def multi_compute(i, data, trip_id_list):
+def multi_compute(i, data, route_id_list):
     feed = gtfs_realtime_pb2.FeedMessage()
     entity_data = []
 
@@ -78,10 +83,10 @@ def multi_compute(i, data, trip_id_list):
     timestamp = datetime.utcfromtimestamp(feed.header.timestamp)
     for entity in feed.entity:
         if entity.HasField("trip_update"):
-            trip_id = find_trip_regex(trip_id_list, entity.trip_update.trip.trip_id)
+            route_id = find_route_regex(route_id_list, entity.trip_update.trip.route_id)
 
-            # if the trip id exists in our database when can then continue processing
-            if not trip_id == None:
+            # if the route id exists in our database when can then continue processing
+            if not route_id == None:
                 trip = entity.trip_update.trip
                 stop_time_update = entity.trip_update.stop_time_update
 
@@ -90,14 +95,15 @@ def multi_compute(i, data, trip_id_list):
                     arr = s.arrival.delay if s.HasField("arrival") else 0
                     entity_data.append(
                         [
-                            trip_id,
+                            trip.trip_id,
+                            route_id,
                             trip.start_date,
                             trip.start_time,
                             s.stop_sequence,
                             s.departure.delay,
                             arr,
-                            timestamp,
                             s.stop_id,
+                            timestamp,
                         ]
                     )
 
@@ -114,8 +120,8 @@ def multi_compute(i, data, trip_id_list):
 # of what we dont need, this is done by only including the trips where
 # we have a match in our database and disregarding the rest
 def process_gtfsr_to_csv(chunk_size: int = 200):
-    query = """select trip_id from trip;"""
-    trip_id_list = [id[0] for id in run_query(query)]
+    query = """select route_id from route;"""
+    route_id_list = [id[0] for id in run_query(query)]
 
     # create empty zipfile
     zipfile.ZipFile(gtfs_csv_zip, "w").close()
@@ -129,7 +135,7 @@ def process_gtfsr_to_csv(chunk_size: int = 200):
         for chunk in chunked_iterable(dirs, size=chunk_size):
 
             delayed_func = [
-                delayed(multi_compute)(curr_i + i, zip.read(dir), trip_id_list) for i, dir in enumerate(chunk)
+                delayed(multi_compute)(curr_i + i, zip.read(dir), route_id_list) for i, dir in enumerate(chunk)
             ]
             parallel_pool = Parallel(n_jobs=8)
 
@@ -174,7 +180,7 @@ def combine_csv():
         combined_csv.columns = entity_cols
 
         # dropping duplicates
-        combined_csv = combined_csv.drop_duplicates(subset=entity_cols[:5])
+        combined_csv = combined_csv.drop_duplicates(subset=entity_cols[:-1])
 
         # convert to csv
         combined_csv.to_csv(gtfs_final_csv_path, index=False, header=True)
@@ -195,13 +201,15 @@ def get_stop_time_df(trip_id, conn):
         stop_time.arrival_time, stop_time.departure_time,
         stop_time.stop_sequence, stop_time.shape_dist_traveled, 
         stop.stop_id, stop.point as geom,
-        trip.direction, route.route_id
+        trip.direction, route.route_id,
+        ARRAY[monday, tuesday, wednesday, thursday, friday, saturday, sunday] as service_days
     from stop_time
     join stop on stop.id = stop_time.stop_id
     join trip on trip.id = stop_time.trip_id
     join route on trip.route_id = route.id
+    join service on trip.service_id = service.id
     where trip.trip_id = '{}'
-    group by stop_time.id, stop.id, trip.id, route.id
+    group by stop_time.id, stop.id, trip.id, route.id, service.id
     order by stop_sequence
     ;
     """.format(
@@ -209,6 +217,9 @@ def get_stop_time_df(trip_id, conn):
     ).lstrip()
 
     gdf = gpd.read_postgis(query, conn())
+
+    # convert to string column, we will parse this later
+    gdf["service_days"] = gdf["service_days"].astype("str")
 
     # convert the times to human readable format, !IMPORTANT! utcfromtimestamp returns the correct version
     gdf["arrival_time"] = gdf["arrival_time"].apply(lambda d: datetime.utcfromtimestamp(d).strftime("%H:%M:%S"))
@@ -236,9 +247,9 @@ def get_stop_time_df(trip_id, conn):
 def create_stop_time_data():
     print("*** creating stop time data ***")
 
-    df = vaex.open(gtfs_final_hdf5_path)  # read csv
+    query = """select trip_id from trip;"""
+    trip_list = [id[0] for id in run_query(query)]
 
-    trip_list = df["trip_id"].unique().tolist()
     delayed_funcs = [delayed(get_stop_time_df)(t_id, get_conn) for t_id in trip_list]
     parallel_pool = Parallel(n_jobs=8)
 
@@ -246,6 +257,15 @@ def create_stop_time_data():
 
     stop_time_trip_df = vaex.from_pandas(pd.concat(res))
     print(f"concat stop_time data, time: {duration()}")
+
+    # strong type casting
+    stop_time_trip_df["stop_sequence"] = stop_time_trip_df["stop_sequence"].astype("int64")
+    stop_time_trip_df["shape_dist_traveled"] = stop_time_trip_df["shape_dist_traveled"].astype("float64")
+    stop_time_trip_df["direction"] = stop_time_trip_df["direction"].astype("int64")
+    stop_time_trip_df["lat"] = stop_time_trip_df["lat"].astype("float64")
+    stop_time_trip_df["lon"] = stop_time_trip_df["lon"].astype("float64")
+    stop_time_trip_df["direction_angle"] = stop_time_trip_df["direction_angle"].astype("float64")
+    stop_time_trip_df["shape_dist_between"] = stop_time_trip_df["shape_dist_between"].astype("float64")
 
     stop_time_trip_df.export_hdf5(stop_time_data_path)  # export to hdf5
     return
@@ -311,7 +331,7 @@ def transform_data(df):
     )
     df = cycl_transform_minute.fit_transform(df)
 
-    label_encoder = vaex.ml.LabelEncoder(features=["trip_id", "route_id"], prefix="label_encode_")
+    label_encoder = vaex.ml.LabelEncoder(features=["route_id"], prefix="label_encode_")
     df = label_encoder.fit_transform(df)
 
     standard_scaler = vaex.ml.StandardScaler(features=["arrival_mean", "p_mean_vol"])
@@ -400,15 +420,42 @@ def extract():
 
 
 def process_data():
-    cols = ["trip_id", "stop_sequence", "stop_id", "start_time"]
-
     if not os.path.exists(stop_time_data_path):
         create_stop_time_data()
 
     df = vaex.open(gtfs_final_hdf5_path)
 
-    df = vaex_mjoin(df, vaex.open(stop_time_data_path), cols, cols, how="inner")
-    print(f"merge stop_time & gtfsr data, time: {duration()}")
+    # compute direction and day of week from realtime data
+    df["direction"] = df["trip_id"].apply(lambda t: dir_f_trip(t))
+    df["dow"] = df["start_date"].apply(lambda t: get_dt(t, "%Y%m%d").weekday())
+
+    # store these columns in memory
+    df.materialize("direction", inplace=True)
+    df.materialize("dow", inplace=True)
+
+    # 500 is set as an error column to remove, None isnt supported
+    df = df[df["direction"] != 500]
+
+    # drop trip_id to remove duplicates
+    df.drop("trip_id", inplace=True)
+
+    # important, we use these columns and later service days in order to
+    # stop being dependent on trip_id.
+    cols = ["route_id", "stop_sequence", "stop_id", "start_time", "direction"]
+    df = vaex_mjoin(df.shallow_copy(), vaex.open(stop_time_data_path), cols, cols, how="inner", allow_duplication=True)
+
+    # filter to keep only trips that happened on that dayof week
+    df["keep_trip"] = df.apply(
+        lambda sd, dow: sd.replace("[", "").replace("]", "").replace(" ", "").split(",")[dow], ["service_days", "dow"]
+    )
+    df = df[df.keep_trip == "True"]
+
+    # drop duplicate rows
+    df.drop(["service_days", "dow", "keep_trip"], inplace=True)
+
+    df = vx_dedupe(df, columns=[i for i in df.get_column_names() if i != "trip_id"])
+
+    print(f"merged stop_time & gtfsr data, time: {duration()}")
 
     df = predict_traffic_from_scats(df)
 
@@ -434,7 +481,7 @@ def create_model():
         df["arr_hour"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").hour)
         df["arrival"] = df["arrival"].apply(lambda t: 0 if t == 0 else t / 60)
 
-        cols = ["trip_id", "stop_id", "arr_dow", "arr_hour"]
+        cols = ["route_id", "stop_id", "arr_dow", "arr_hour", "direction", "stop_sequence"]
 
         # if the arrival historical means dataset is not created we create it
         if not os.path.exists(gtfsr_historical_means_path):
@@ -456,7 +503,6 @@ def create_model():
 
         df = df[
             [
-                "trip_id",
                 "start_date",
                 "start_time",
                 "stop_sequence",
@@ -513,9 +559,9 @@ if __name__ == "__main__":
         create_model()
 
     if args.all:
-        extract()
-        process_data()
-        create_model()
+        for func in [extract, process_data, create_model]:
+            func()
+            print(f"finished function {func}, time: {duration()}")
 
     if args.clear:
         os.remove(stop_time_data_path)
