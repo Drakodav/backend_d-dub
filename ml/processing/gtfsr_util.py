@@ -16,7 +16,8 @@ import os
 
 from vaex.ml.sklearn import Predictor
 import lightgbm
-import xgboost
+
+# import xgboost
 
 from ml.processing.util import (
     apply_dow,
@@ -32,7 +33,7 @@ from ml.processing.util import (
     vx_dedupe,
 )
 
-month = 2
+month = 1
 
 dir = os.path.dirname(__file__)
 outdir = os.path.join(dir, "output")
@@ -423,6 +424,7 @@ def process_data():
     if not os.path.exists(stop_time_data_path):
         create_stop_time_data()
 
+    print("*** processing data ***")
     df = vaex.open(gtfs_final_hdf5_path)
 
     # compute direction and day of week from realtime data
@@ -453,7 +455,10 @@ def process_data():
     # drop duplicate rows
     df.drop(["service_days", "dow", "keep_trip"], inplace=True)
 
-    df = vx_dedupe(df, columns=[i for i in df.get_column_names() if i != "trip_id"])
+    df = vaex.from_pandas(
+        df.to_pandas_df().drop_duplicates(subset=[i for i in df.get_column_names() if i != "trip_id"])
+    )
+    # df = vx_dedupe(df, columns=[i for i in df.get_column_names() if i != "trip_id"])
 
     print(f"merged stop_time & gtfsr data, time: {duration()}")
 
@@ -549,6 +554,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # # line below can take multiple csv files and export to hdf5
+    # vaex.open('../output/gtfsr_*.csv').export_hdf5('../output/gtfsr.csv.hdf5')
+
     if args.extract:
         extract()
 
@@ -564,7 +572,6 @@ if __name__ == "__main__":
             print(f"finished function {func}, time: {duration()}")
 
     if args.clear:
-        os.remove(stop_time_data_path)
         os.remove(gtfsr_model_df_path)
         os.remove(gtfsr_historical_means_path)
         os.remove(gtfsr_model_out_path)
