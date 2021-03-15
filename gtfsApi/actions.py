@@ -55,13 +55,13 @@ def get_route_action(self, request):
 
     if target in request.GET:
         try:
-            get_var = str(request.GET[target])
+            route = int(request.GET[target])
         except:
-            message.append("{} attribute must be string".format(target))
+            message.append("%s attribute must be integer value" % target)
             return Response(message)
 
         cursor = connection.cursor()
-        cursor.execute(correct_route_query(get_var))
+        cursor.execute(correct_route_query(route))
         desc = cursor.description
         cursorData = cursor.fetchall()
 

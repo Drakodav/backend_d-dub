@@ -98,3 +98,10 @@ running ml (Machine Learning) package
 ```
 python -m ml.processing.gtfsr_util
 ```
+
+testing
+
+```
+coverage run --source='dynamoDub','ml','gtfsApi','gtfsRApi' manage.py test
+coverage report
+```
