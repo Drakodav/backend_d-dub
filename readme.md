@@ -105,3 +105,9 @@ testing
 coverage run --source='dynamoDub','ml','gtfsApi','gtfsRApi' manage.py test
 coverage report
 ```
+
+django_extensions diagra,
+
+```
+python manage.py graph_models -a -g -o my_project_visualized.png
+```
