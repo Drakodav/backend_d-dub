@@ -16,6 +16,7 @@ order by stop_time.stop_sequence
 
 def stop_departures_ml_query(stop_id: int):
     return """
+SET TIMEZONE='Europe/Dublin';
 select  
 	to_timestamp(stop_time.departure_time)::time as departure_time,
 	route.short_name, route.route_id,
@@ -62,6 +63,7 @@ order by stop_time.departure_time
 
 def stop_departures_query(stop_id: int):
     return """
+SET TIMEZONE='Europe/Dublin';
 select
 	to_timestamp(stop_time.departure_time)::time as departure_time,
 	route.short_name,
@@ -110,6 +112,7 @@ order by stop_time.departure_time
 
 def trip_from_route_query(route_id: int, direction: int = 0):
     return """
+SET TIMEZONE='Europe/Dublin';
 select trip.* 
 from trip
 left join stop_time on stop_time.trip_id = trip.id
@@ -146,6 +149,7 @@ limit 1
 
 def correct_route_query(short_name):
     return """
+SET TIMEZONE='Europe/Dublin';
 select route.* 
 from route, (
 	select 
