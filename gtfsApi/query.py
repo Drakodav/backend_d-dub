@@ -45,14 +45,13 @@ join route on trip.route_id = route.id
 			END as bool
 		) as dow
 	from service as services
-	group by id, dow
+	where not services.id in (select service_id from service_date where date = current_date)
 ) as my_service
 where stop_time.stop_id = {}
  	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time >= current_timestamp(0) - interval '0h 15min'
-	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time <= current_timestamp(0) + interval '1h 15min'
+	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time <= current_timestamp(0) + interval '1h 0min'
 	and my_service.dow = true
 	and trip.service_id = my_service.id 
-	and not service.id in (select service_id from service_date where date = current_date )
 group by trip.id, stop_time.id, route.id, stop.id
 order by stop_time.departure_time
 ;
@@ -94,14 +93,13 @@ join route on trip.route_id = route.id
 			END as bool
 		) as dow
 	from service as services
-	group by id, dow
+	where not services.id in (select service_id from service_date where date = current_date)
 ) as my_service
 where stop_time.stop_id = {}
  	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time >= current_timestamp(0) - interval '0h 15min'
-	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time <= current_timestamp(0) + interval '1h 15min'
+	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time <= current_timestamp(0) + interval '1h 0min'
 	and my_service.dow = true
 	and trip.service_id = my_service.id
-	and not service.id in (select service_id from service_date where date = current_date)
 group by trip.id, stop_time.id, route.id
 order by stop_time.departure_time
 ;
@@ -115,7 +113,7 @@ def trip_from_route_query(route_id: int, direction: int = 0):
 SET TIMEZONE='Europe/Dublin';
 select trip.* 
 from trip
-join stop_time on stop_time.trip_id = trip.id
+join stop_time on stop_time.trip_id = trip.id and stop_time.stop_sequence = 1
 , (
 	select 
 		id,
@@ -131,14 +129,13 @@ join stop_time on stop_time.trip_id = trip.id
 			END as bool
 		) as dow
 	from service as services
-	group by id, dow
+	where not services.id in (select service_id from service_date where date = current_date)
 ) as my_service
 where my_service.dow = true
-	and to_timestamp(stop_time.departure_time)::time >= current_time(0)::time
 	and trip.service_id = my_service.id 
-	and not my_service.id in (select service_id from service_date where date = current_date)
+	and to_timestamp(stop_time.departure_time)::time >= current_time(0)::time
 	and trip.route_id = {} and trip.direction = '{}' 
-group by trip.id,stop_time.id
+group by trip.id, stop_time.id
 order by stop_time.departure_time
 limit 1
 ;
@@ -166,10 +163,9 @@ from route, (
 			END as bool
 		) as dow
 	from service as services
-	group by id, dow
+	where not services.id in (select service_id from service_date where date = current_date)
 ) as my_service
 where my_service.dow = true
-	and my_service.id in (select service_id from trip where trip.route_id = route.id)
 	and route.short_name ilike '%{}%'
 group by route.id
 ;
