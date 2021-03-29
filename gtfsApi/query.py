@@ -3,8 +3,8 @@ def route_stops_query(trip_id: int):
 select 
  	stop.id, stop.stop_id, stop.name, stop.point, stop_time.stop_sequence
 from stop
-left join stop_time on stop_time.stop_id = stop.id
-left join trip on trip.id = stop_time.trip_id
+join stop_time on stop_time.stop_id = stop.id
+join trip on trip.id = stop_time.trip_id
 where trip.id = {}
 group by stop.id, stop_time.stop_sequence
 order by stop_time.stop_sequence
@@ -25,11 +25,11 @@ select
 	stop.stop_id,
  	trip.geometry
 from trip
-left join stop_time on trip.id = stop_time.trip_id
-left join stop on stop.id = stop_time.stop_id
-left join service on trip.service_id = service.id
-left join service_date on service.id = service_date.service_id
-left join route on trip.route_id = route.id
+join stop_time on trip.id = stop_time.trip_id
+join stop on stop.id = stop_time.stop_id
+join service on trip.service_id = service.id
+join service_date on service.id = service_date.service_id
+join route on trip.route_id = route.id
 , (
 	select 
 		id,
@@ -75,10 +75,10 @@ select
  	trip.direction,
  	trip.geometry
 from trip
-left join stop_time on trip.id = stop_time.trip_id
-left join service on trip.service_id = service.id
-left join service_date on service.id = service_date.service_id
-left join route on trip.route_id = route.id
+join stop_time on trip.id = stop_time.trip_id
+join service on trip.service_id = service.id
+join service_date on service.id = service_date.service_id
+join route on trip.route_id = route.id
 , (
 	select
 		id,
@@ -115,7 +115,7 @@ def trip_from_route_query(route_id: int, direction: int = 0):
 SET TIMEZONE='Europe/Dublin';
 select trip.* 
 from trip
-left join stop_time on stop_time.trip_id = trip.id
+join stop_time on stop_time.trip_id = trip.id
 , (
 	select 
 		id,
