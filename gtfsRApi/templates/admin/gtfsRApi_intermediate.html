@@ -17,18 +17,21 @@
             document.getElementById('dwnButton').disabled = true;
             document.getElementById('bckButton').disabled = true;
 
-            function customResult(resultElement, result) {
-                document.getElementById('bckButton').disabled = false;
-
-                document.getElementById('dwnButton').name = 'download';
-                document.getElementById('dwnButton').value = 'Download';
-                document.getElementById('dwnButton').disabled = false;
-                document.getElementById('dwnButton').click();
-            }
-
             CeleryProgressBar.initProgressBar(progressUrl, {
-                onResult: customResult,
+                onResult: (resultElement, result) => {
+                    document.getElementById('bckButton').disabled = false;
+
+                    document.getElementById('dwnButton').name = 'download';
+                    document.getElementById('dwnButton').value = 'Download';
+                    document.getElementById('dwnButton').disabled = false;
+                    document.getElementById('dwnButton').click();
+                },
             });
+
+            // update the default value selected when the page loads
+            document.getElementById('select_month')['{{month}}' - 1].selected = true;
+            document.getElementById('select_year')[parseInt('{{year}}'.slice(-1))].selected = true;
+            console.log('{{month}}' - 1, parseInt('{{year}}'.slice(-1)));
         });
     </script>
     {% endif %}
@@ -36,7 +39,7 @@
     <br />
 
     <label>Choose a Month:</label>
-    <select name="month">
+    <select id="select_month" name="month">
         <option value="1">January</option>
         <option value="2">Febuary</option>
         <option value="3">March</option>
@@ -52,9 +55,14 @@
     </select>
 
     <label>Choose a year:</label>
-    <select name="year">
-        <option value="2021">2021</option>
+    <select id="select_year" name="year">
         <option value="2020">2020</option>
+        <option value="2021">2021</option>
+        <option value="2022">2022</option>
+        <option value="2023">2023</option>
+        <option value="2024">2024</option>
+        <option value="2025">2025</option>
+        <option value="2026">2026</option>
     </select>
 
     <br />

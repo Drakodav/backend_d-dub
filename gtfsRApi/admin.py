@@ -51,6 +51,7 @@ class GtfsRApiAdmin(admin.ModelAdmin):
             result = AsyncResult(request.POST["task_id"])
             if result.get() == "success":
                 year, month = request.POST["year"], request.POST["month"]
+                context["year"], context["month"] = year, month
 
                 source_name = "GtfsRRecords.zip"
                 filepath = os.path.join(STATIC_ROOT, source_name)
@@ -62,7 +63,10 @@ class GtfsRApiAdmin(admin.ModelAdmin):
                 self.message_user(request, "Download Successful")
 
                 return FileResponse(
-                    open(filepath, "rb"), content_type="application/zip", filename=filename, as_attachment=True
+                    open(filepath, "rb"),
+                    content_type="application/zip",
+                    filename=filename,
+                    as_attachment=True,
                 )
 
             messages.error(request, "Data is not available for this month")
@@ -73,6 +77,7 @@ class GtfsRApiAdmin(admin.ModelAdmin):
                 # IMPORTANT, USE FULL MODULE PATH WHEN IMPORTING TASK
                 result = download_realtime_data.delay(year, month)
                 context["task_id"] = result.task_id
+                context["year"], context["month"] = year, month
 
                 return render(request, "admin/gtfsRApi_intermediate.html", context=context)
             except download_realtime_data.OperationalError as exc:
@@ -80,7 +85,7 @@ class GtfsRApiAdmin(admin.ModelAdmin):
 
         return render(request, "admin/gtfsRApi_intermediate.html", context=context)
 
-    download_records.short_description = "Download monthly records"
+    download_records.short_description = "Download Monthly Records"
     download_records.acts_on_all = True
 
 
