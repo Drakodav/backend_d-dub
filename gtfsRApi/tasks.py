@@ -28,7 +28,7 @@ def gtfs_r_api():
             record.save()
             return "Success {}".format(record.timestamp)
     except Exception as e:
-        return e
+        return str(e)
 
 
 @shared_task(bind=True, name="download_realtime_data", ignore_result=False, track_started=True)
@@ -51,4 +51,4 @@ def download_realtime_data(self, year: int, month: int):
         else:
             return None
     except Exception as e:
-        return e
+        return str(e)

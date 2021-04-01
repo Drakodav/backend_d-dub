@@ -8,9 +8,10 @@ docker stop pgadmin
 docker rm pgadmin
 docker create --name pgadmin --network geonet --network-alias na_pgadmin -t \
 -v v_pgadmin:/var/lib/pgadmin \
--e 'PGADMIN_DEFAULT_EMAIL=admin@admin.ie' \
 -p 8082:80 \
--e 'PGADMIN_DEFAULT_PASSWORD=admin' dpage/pgadmin4
+-e 'PGADMIN_DEFAULT_EMAIL=admin@admin.ie' \
+-e 'PGADMIN_DEFAULT_PASSWORD=admin' \
+dpage/pgadmin4
 
 docker start pgadmin
 

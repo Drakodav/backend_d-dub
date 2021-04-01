@@ -14,7 +14,7 @@ git clone https://github.com/Drakodav/backend_d-dub.git;
 # copy .env file to VM
 sudo scp -i ../../web-mapping_key.pem \
 ../.env \
-azureuser@40.121.42.196:/home/azureuser/
+azureuser@40.121.42.196:/home/azureuser/backend_d-dub/
 
 # copy machine learning files file to VM
 sudo scp -i ../../web-mapping_key.pem \
@@ -35,14 +35,12 @@ echo "deploying backend"
 sudo ssh -i ../../web-mapping_key.pem azureuser@40.121.42.196 \
 '
 sudo find backend_d-dub/ -type f -iname "*.sh" -exec chmod +x {} \;
-cp .env backend_d-dub/;
 cd backend_d-dub/scripts;
-# sudo ./rabbitmq.sh
+sudo ./rabbitmq.sh
 sudo ./django.sh;
-# sudo ./nginx.sh;
+sudo ./nginx.sh;
 cd ../.. ;
 sudo rm -r backend_d-dub;
-sudo rm -r .env;
  
 '
 
