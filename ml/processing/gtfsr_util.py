@@ -1,6 +1,6 @@
 from __future__ import absolute_import, unicode_literals
 
-from joblib import delayed, Parallel, load, parallel_backend
+from joblib import delayed, Parallel, load
 from google.transit import gtfs_realtime_pb2
 from google.protobuf.json_format import Parse
 from datetime import datetime
@@ -33,7 +33,7 @@ from ml.processing.util import (
     vx_dedupe,
 )
 
-month = 1
+month = 3
 
 dir = os.path.dirname(__file__)
 outdir = os.path.join(dir, "output")
@@ -120,7 +120,7 @@ def multi_compute(i, data, route_id_list):
 # here we split the data into smaller chunks by getting rid
 # of what we dont need, this is done by only including the trips where
 # we have a match in our database and disregarding the rest
-def process_gtfsr_to_csv(chunk_size: int = 200):
+def process_gtfsr_to_csv(chunk_size: int = 500):
     query = """select route_id from route;"""
     route_id_list = [id[0] for id in run_query(query)]
 
@@ -138,9 +138,7 @@ def process_gtfsr_to_csv(chunk_size: int = 200):
             delayed_func = [
                 delayed(multi_compute)(curr_i + i, zip.read(dir), route_id_list) for i, dir in enumerate(chunk)
             ]
-            parallel_pool = Parallel(n_jobs=8)
-
-            res = parallel_pool(delayed_func)
+            res = Parallel(n_jobs=-1)(delayed_func)
 
             # create df to store chunks
             gtfsr_df = pd.DataFrame()
@@ -252,9 +250,7 @@ def create_stop_time_data():
     trip_list = [id[0] for id in run_query(query)]
 
     delayed_funcs = [delayed(get_stop_time_df)(t_id, get_conn) for t_id in trip_list]
-    parallel_pool = Parallel(n_jobs=8)
-
-    res = parallel_pool(delayed_funcs)
+    res = Parallel(n_jobs=-1)(delayed_funcs)
 
     stop_time_trip_df = vaex.from_pandas(pd.concat(res))
     print(f"concat stop_time data, time: {duration()}")
@@ -349,9 +345,8 @@ def train_gtfsr(df):
     print("*** gtfsr model training ***")
 
     feats = (
-        df.get_column_names(regex="pca")
-        + df.get_column_names(regex=".*_x")
-        + df.get_column_names(regex=".*_y")
+        df.get_column_names(regex="pca[\d]")
+        + df.get_column_names(regex=".*_[xy]")
         + df.get_column_names(regex="standard_scaled_*")
         + df.get_column_names(regex="label_encode_*")
         + df.get_column_names(regex="minmax_scaled_*")
@@ -360,7 +355,7 @@ def train_gtfsr(df):
 
     assert [
         df[feat].dtype for feat in feats if not df[feat].dtype in ["float64", "int64"]
-    ] == [], f"Training feature must be a number type {df[feats].dtypes}"
+    ] == [], f"All training feature must be number types, not {df[feats].dtypes}"
 
     target = "arrival"
     prediction_name = "p_arrival"
@@ -452,7 +447,7 @@ def process_data():
     )
     df = df[df.keep_trip == "True"]
 
-    # drop duplicate rows
+    # drop redundant columns
     df.drop(["service_days", "dow", "keep_trip"], inplace=True)
 
     df = vaex.from_pandas(
@@ -555,7 +550,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # # line below can take multiple csv files and export to hdf5
-    # vaex.open('../output/gtfsr_*.csv').export_hdf5('../output/gtfsr.csv.hdf5')
+    # vaex.open(os.path.join(outdir, "gtfsr_*.csv")).export_hdf5(os.path.join(outdir, "gtfsr.csv.hdf5"))
 
     if args.extract:
         extract()

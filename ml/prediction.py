@@ -7,9 +7,9 @@ from ml.apps import MlConfig
 # both datatypes must be the same for every feature, also, an expression wont be recognised when loading
 # the state on.
 def make_prediction(data):
-    st_df = MlConfig.st_df
-    hm_df = MlConfig.hm_df
-    model = MlConfig.state_model
+    st_df = MlConfig.st_df  # stop_time_data
+    hm_df = MlConfig.hm_df  # historical means dataset
+    model = MlConfig.state_model  # GTFSR vaex model state
 
     empty = ("", "")
 

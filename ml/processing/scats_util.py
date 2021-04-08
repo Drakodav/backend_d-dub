@@ -78,11 +78,11 @@ def process_scats_data():
 
     # we have to aggregate the detectors, this will significantly reduce the size of our dataset
     # there are about 31 detectors per site, for every hour. this makes for lots of duplicate data
+    # the following simply adds the first value of the column in the agg function.
     cols = {}
     for col in list(dataset.columns):
-        if col in ["Sum_Volume", "Avg_Volume", "Site", "End_Time"]:
-            continue
-        cols[col] = "first"
+        if not col in ["Sum_Volume", "Avg_Volume", "Site", "End_Time"]:
+            cols[col] = "first"
 
     # group the data to aggregate the sum_volume and avg_volume
     grouped_data = dataset.groupby(["End_Time", "Site"], as_index=False).agg(
@@ -144,14 +144,15 @@ def create_scats_ml_model():
     cycl_transform_dow = vaex.ml.CycleTransformer(features=["dow"], n=7)
     df = cycl_transform_dow.fit_transform(df)
 
-    feats = df.get_column_names(regex="pca") + df.get_column_names(regex=".*_x") + df.get_column_names(regex=".*_y")
-    target = "avg_vol"
-
     print("dataWrangling done, ready to create model, time: {}s".format(duration()))
 
     # create a randomForestRegression model
-    model = RandomForestRegressor(random_state=42, n_estimators=5 * 24)
-    vaex_model = Predictor(features=feats, target=target, model=model, prediction_name="p_avg_vol")
+    vaex_model = Predictor(
+        features=df.get_column_names(regex="pca[\d]") + df.get_column_names(regex=".*_[xy]"),
+        target="avg_vol",
+        model=RandomForestRegressor(random_state=42, n_estimators=7 * 24),
+        prediction_name="p_avg_vol",
+    )
 
     # here we fit and train the model
     with parallel_backend("threading", n_jobs=8):

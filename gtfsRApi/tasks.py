@@ -44,8 +44,8 @@ def download_realtime_data(self, year: int, month: int):
             with zipfile.ZipFile(os.path.join(STATIC_ROOT, "GtfsRRecords.zip"), "w") as zf:
                 for i, record in enumerate(records.iterator(chunk_size=500)):
                     if i % 10 == 0:
+                        progress_recorder.set_progress(i, length)
                         zf.writestr("{}.json".format(i), json.dumps(record), compress_type=zipfile.ZIP_DEFLATED)
-                        progress_recorder.set_progress(i + 1, length)
 
             return "success"
         else:
