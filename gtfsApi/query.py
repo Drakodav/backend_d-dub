@@ -18,7 +18,7 @@ def stop_departures_ml_query(stop_id: int):
     return """
 SET TIMEZONE='Europe/Dublin';
 select  
-	to_timestamp(stop_time.departure_time)::time as departure_time,
+	(to_timestamp(stop_time.departure_time) at time zone '+0')::time as departure_time,
 	route.short_name, route.route_id,
  	trip.id, trip.trip_id, trip.headsign, trip.direction,
 	stop_time.stop_sequence,
@@ -49,8 +49,8 @@ join route on trip.route_id = route.id
 		and (current_date >= start_date and current_date <= end_date)
 ) as my_service
 where stop_time.stop_id = {}
- 	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time >= current_timestamp(0) - interval '0h 15min'
-	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time <= current_timestamp(0) + interval '1h 0min'
+ 	and CURRENT_DATE + (to_timestamp(stop_time.departure_time) at time zone '+0')::time >= current_timestamp(0) - interval '0h 15min'
+	and CURRENT_DATE + (to_timestamp(stop_time.departure_time) at time zone '+0')::time <= current_timestamp(0) + interval '1h 0min'
 	and my_service.dow = true
 	and trip.service_id = my_service.id 
 group by trip.id, stop_time.id, route.id, stop.id
@@ -65,7 +65,7 @@ def stop_departures_query(stop_id: int):
     return """
 SET TIMEZONE='Europe/Dublin';
 select
-	to_timestamp(stop_time.departure_time)::time as departure_time,
+	(to_timestamp(stop_time.departure_time) at time zone '+0')::time as departure_time,
 	route.short_name,
 	route.route_id,
 	stop_time.stop_sequence,
@@ -98,8 +98,8 @@ join route on trip.route_id = route.id
 		and (current_date >= start_date and current_date <= end_date)
 ) as my_service
 where stop_time.stop_id = {}
- 	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time >= current_timestamp(0) - interval '0h 15min'
-	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time <= current_timestamp(0) + interval '1h 0min'
+ 	and CURRENT_DATE + (to_timestamp(stop_time.departure_time) at time zone '+0')::time >= current_timestamp(0) - interval '0h 15min'
+	and CURRENT_DATE + (to_timestamp(stop_time.departure_time) at time zone '+0')::time <= current_timestamp(0) + interval '1h 0min'
 	and my_service.dow = true
 	and trip.service_id = my_service.id
 group by trip.id, stop_time.id, route.id
@@ -136,7 +136,7 @@ join stop_time on stop_time.trip_id = trip.id and stop_time.stop_sequence = 1
 ) as my_service
 where my_service.dow = true
 	and trip.service_id = my_service.id 
-	and to_timestamp(stop_time.departure_time)::time >= current_time(0)::time
+	and (to_timestamp(stop_time.departure_time) at time zone '+0')::time >= current_time(0)::time
 	and trip.route_id = {} and trip.direction = '{}' 
 group by trip.id, stop_time.id
 order by stop_time.departure_time
