@@ -46,6 +46,7 @@ join route on trip.route_id = route.id
 		) as dow
 	from service as services
 	where not services.id in (select service_id from service_date where date = current_date)
+		and (current_date >= start_date and current_date <= end_date)
 ) as my_service
 where stop_time.stop_id = {}
  	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time >= current_timestamp(0) - interval '0h 15min'
@@ -94,6 +95,7 @@ join route on trip.route_id = route.id
 		) as dow
 	from service as services
 	where not services.id in (select service_id from service_date where date = current_date)
+		and (current_date >= start_date and current_date <= end_date)
 ) as my_service
 where stop_time.stop_id = {}
  	and CURRENT_DATE + to_timestamp(stop_time.departure_time)::time >= current_timestamp(0) - interval '0h 15min'
@@ -130,6 +132,7 @@ join stop_time on stop_time.trip_id = trip.id and stop_time.stop_sequence = 1
 		) as dow
 	from service as services
 	where not services.id in (select service_id from service_date where date = current_date)
+		and (current_date >= start_date and current_date <= end_date)
 ) as my_service
 where my_service.dow = true
 	and trip.service_id = my_service.id 
@@ -148,7 +151,8 @@ def correct_route_query(short_name):
     return """
 SET TIMEZONE='Europe/Dublin';
 select route.* 
-from route, (
+from route
+join trip on trip.route_id = route.id, (
 	select 
 		id,
 		CAST(
@@ -164,8 +168,10 @@ from route, (
 		) as dow
 	from service as services
 	where not services.id in (select service_id from service_date where date = current_date)
+	 and (current_date >= start_date and current_date <= end_date)
 ) as my_service
 where my_service.dow = true
+	and my_service.id = trip.service_id
 	and route.short_name ilike '%{}%'
 group by route.id
 ;
