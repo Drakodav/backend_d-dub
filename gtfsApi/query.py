@@ -28,7 +28,6 @@ from trip
 join stop_time on trip.id = stop_time.trip_id
 join stop on stop.id = stop_time.stop_id
 join service on trip.service_id = service.id
-join service_date on service.id = service_date.service_id
 join route on trip.route_id = route.id
 , (
 	select 
@@ -77,7 +76,6 @@ select
 from trip
 join stop_time on trip.id = stop_time.trip_id
 join service on trip.service_id = service.id
-join service_date on service.id = service_date.service_id
 join route on trip.route_id = route.id
 , (
 	select
