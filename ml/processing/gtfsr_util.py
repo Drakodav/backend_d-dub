@@ -41,11 +41,10 @@ gtfs_records_zip = os.path.join(dir, "data", f"GtfsRRecords_{month}.zip")
 gtfs_csv_zip = os.path.join(outdir, f"gtfsr_csv_{month}.zip")
 gtfs_final_csv_path = os.path.join(outdir, "gtfsr.csv")
 gtfs_final_hdf5_path = os.path.join(outdir, "gtfsr.csv.hdf5")
-gtfs_processed_path = os.path.join(outdir, "gtfsr_processed.hdf5")
+gtfsr_processed_path = os.path.join(outdir, "gtfsr_processed.hdf5")
 gtfsr_model_df_path = os.path.join(outdir, "gtfsr_model.hdf5")
 gtfsr_model_out_path = os.path.join(outdir, "gtfsr_model.json")
 scats_model_path = os.path.join(outdir, "scats_model.json")
-gtfsr_processing_temp = os.path.join(outdir, "processing_temp.hdf5")
 gtfsr_historical_means_path = os.path.join(outdir, "gtfsr_historical_means.hdf5")
 stop_time_data_path = os.path.join(outdir, "stop_time_data.hdf5")
 
@@ -459,13 +458,13 @@ def process_data():
 
     df = predict_traffic_from_scats(df)
 
-    df.export_hdf5(gtfs_processed_path)
+    df.export_hdf5(gtfsr_processed_path)
     print(f"finished processing data, {duration()}")
 
 
 def create_model():
     if not os.path.exists(gtfsr_model_df_path):
-        df = vaex.open(gtfs_processed_path)
+        df = vaex.open(gtfsr_processed_path)
         df = df.sample(frac=1)
 
         # # remove outliers from dataset, all delays over 20 minutes
@@ -570,6 +569,8 @@ if __name__ == "__main__":
         os.remove(gtfsr_model_df_path)
         os.remove(gtfsr_historical_means_path)
         os.remove(gtfsr_model_out_path)
+        os.remove(stop_time_data_path)
+        os.remove(gtfsr_processed_path)
 
     if len(sys.argv) == 1:
         parser.print_help()
