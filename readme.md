@@ -49,6 +49,8 @@ sudo find . -type f -iname "*.sh" -exec chmod +x {} \;
 
 ```
 docker exec -it dynamo_backend bash
+python manage.py migrate multigtfs zero
+python manage.py migrate multigtfs
 rm gtfs.zip
 wget -O gtfs.zip https://www.transportforireland.ie/transitData/google_transit_combined.zip
 python manage.py importgtfs gtfs.zip
