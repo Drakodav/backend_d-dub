@@ -468,13 +468,13 @@ def create_model():
         df = df.sample(frac=1)
 
         # # remove outliers from dataset, all delays over 20 minutes
-        # outlier = 60 * 20
-        # df = df[
-        #     (df["arrival"] >= -outlier)
-        #     & (df["arrival"] <= outlier)
-        #     & (df["departure"] >= -outlier)
-        #     & (df["departure"] <= outlier)
-        # ]
+        outlier = 60 * 20
+        df = df[
+            (df["arrival"] >= -outlier)
+            & (df["arrival"] <= outlier)
+            & (df["departure"] >= -outlier)
+            & (df["departure"] <= outlier)
+        ]
 
         df["arr_dow"] = df.apply(apply_dow, ["start_date", "start_time", "arrival_time"])
         df["arr_hour"] = df["arrival_time"].apply(lambda t: get_dt(t, "%H:%M:%S").hour)
@@ -496,6 +496,8 @@ def create_model():
                     .reset_index()
                 )
             ).export_hdf5(gtfsr_historical_means_path)
+
+        print("*** joining hist means ***")
 
         # join the arrival means to our dataset
         df = vaex_mjoin(df, vaex.open(gtfsr_historical_means_path), cols, cols, how="left")
@@ -525,6 +527,7 @@ def create_model():
 
         df.export_hdf5(gtfsr_model_df_path)
 
+    print("*** Start training ***")
     # open model ready
     df = vaex.open(gtfsr_model_df_path)
 

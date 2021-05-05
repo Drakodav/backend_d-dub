@@ -4,6 +4,7 @@ from celery.app import shared_task
 import requests
 from .models import GtfsRApi
 from celery_progress.backend import ProgressRecorder
+from django.utils import timezone
 from dynamoDub.settings import STATIC_ROOT
 import json
 
@@ -24,8 +25,17 @@ def gtfs_r_api():
         if "statusCode" in data and data["statusCode"] == 429:
             raise Exception("{}".format(data["message"]))
         else:
-            record = GtfsRApi(data=data)
-            record.save()
+            if not len(GtfsRApi.objects.all().filter(id=1)) == 1:
+                # Save the first entry
+                # this line without any if statements will simply save the entries
+                # removed ML from production
+                GtfsRApi(data=data).save()
+            else:
+                record = GtfsRApi.objects.get(id=1)
+                record.data = data
+                record.timestamp = timezone.now()
+                record.save()
+
             return "Success {}".format(record.timestamp)
     except Exception as e:
         return str(e)

@@ -83,7 +83,7 @@ INSTALLED_APPS = [
     "multigtfs",
     "gtfsApi",
     "gtfsRApi",
-    "ml",
+    # "ml", # removed ML from production
 ]
 
 MIDDLEWARE = [
