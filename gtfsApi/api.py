@@ -30,7 +30,7 @@ from django_filters.rest_framework import FilterSet
 from django.db.models.base import Model
 from .actions import (
     get_departures_action,
-    get_departures_ml_action,
+    # get_departures_ml_action, # removed ML from production
     get_route_action,
     get_trips_action,
     get_stops_action,
