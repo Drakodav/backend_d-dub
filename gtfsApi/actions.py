@@ -137,9 +137,9 @@ def get_departures_action(self, request):
         for entity in feed.entity:
             if entity.HasField("trip_update"):
                 stop_time_update = entity.trip_update.stop_time_update
-                trip_id = find_trip_regex(trip_ids, entity.trip_update.trip.trip_id)
+                trip_id = entity.trip_update.trip.trip_id
 
-                if not trip_id == None:
+                if trip_id in trip_ids:
                     idx = trip_ids.index(trip_id)
                     curr_stop_sequence = results[idx]["stop_sequence"]
 
